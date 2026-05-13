@@ -48,17 +48,30 @@ jobs:
 
   signed-ipa:
     runs-on: macos-15
-    if: ${{ github.event_name == 'workflow_dispatch' && secrets.IOS_CERTIFICATE_P12 != '' && secrets.IOS_CERTIFICATE_PASSWORD != '' && secrets.IOS_PROVISIONING_PROFILE != '' }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     defaults:
       run:
         working-directory: ios/EggyRobotClient
     steps:
       - uses: actions/checkout@v4
+      - name: Check signing secrets
+        env:
+          IOS_CERTIFICATE_P12: ${{ secrets.IOS_CERTIFICATE_P12 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+        run: |
+          if [ -z "$IOS_CERTIFICATE_P12" ] || [ -z "$IOS_CERTIFICATE_PASSWORD" ] || [ -z "$IOS_PROVISIONING_PROFILE" ]; then
+            echo "Signing secrets are not configured; skip IPA export."
+            echo "configured=false" >> "$GITHUB_ENV"
+          else
+            echo "configured=true" >> "$GITHUB_ENV"
+          fi
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project
         run: xcodegen generate
       - name: Decode signing assets
+        if: env.configured == 'true'
         env:
           IOS_CERTIFICATE_P12: ${{ secrets.IOS_CERTIFICATE_P12 }}
           IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
@@ -67,6 +80,7 @@ jobs:
           echo "$IOS_CERTIFICATE_P12" | base64 --decode > signing/cert.p12
           echo "$IOS_PROVISIONING_PROFILE" | base64 --decode > signing/profile.mobileprovision
       - name: Install signing assets
+        if: env.configured == 'true'
         env:
           IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
         run: |
@@ -78,9 +92,11 @@ jobs:
           UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< $(security cms -D -i signing/profile.mobileprovision))
           cp signing/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
       - name: Archive
+        if: env.configured == 'true'
         run: |
           xcodebuild -project EggyRobotClient.xcodeproj -scheme EggyRobotClient -configuration Release -archivePath build/EggyRobotClient.xcarchive archive
       - name: Export IPA
+        if: env.configured == 'true'
         run: |
           cat > ExportOptions.plist <<'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -89,6 +105,7 @@ jobs:
           PLIST
           xcodebuild -exportArchive -archivePath build/EggyRobotClient.xcarchive -exportPath build/export -exportOptionsPlist ExportOptions.plist
       - name: Create GitHub Release
+        if: env.configured == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ios-client-${{ github.run_number }}

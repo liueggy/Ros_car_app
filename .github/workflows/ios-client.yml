@@ -69,11 +69,46 @@ jobs:
           name: EggyRobotClient-unsigned-ipa
           path: ios/EggyRobotClient/EggyRobotClient-unsigned.ipa
 
+      - name: Generate unsigned Release notes
+        run: |
+          BUILD_TIME_UTC=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          COMMIT_SHORT=$(git rev-parse --short HEAD)
+          cat > unsigned-release-notes.md <<EOF
+          # EggyRobotClient 未签名 IPA
+
+          最新构建已自动更新。
+
+          ## 构建信息
+
+          - 构建时间：${BUILD_TIME_UTC}
+          - Workflow Run：#${GITHUB_RUN_NUMBER}
+          - Commit：${COMMIT_SHORT}
+          - 分支：${GITHUB_REF_NAME}
+          - Bundle ID：com.eggy.robot.client
+          - Minimum iOS：17.0
+
+          ## 本次产物
+
+          - EggyRobotClient-unsigned.ipa
+
+          ## 说明
+
+          这是未签名 IPA，不能直接安装。请使用轻松签、iOS App Signer、Sideloadly、AltStore 或你自己的证书重新签名后安装。
+
+          ## 当前客户端能力
+
+          - 连接 Ros_car_web WebSocket 中转服务
+          - 实时显示小车状态、地图、雷达点、路径和目标点
+          - 控制页显示实时小地图，可边看地图边控制小车
+          - 支持手动控制、自动探索、重置、场景切换、保存/加载地图
+          EOF
+
       - name: Create or update unsigned Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: unsigned-latest
           name: EggyRobotClient Unsigned Latest
+          body_path: ios/EggyRobotClient/unsigned-release-notes.md
           files: ios/EggyRobotClient/EggyRobotClient-unsigned.ipa
           make_latest: true
 

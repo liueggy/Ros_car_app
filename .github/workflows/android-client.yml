@@ -8,6 +8,9 @@ on:
       - '.github/workflows/android-client.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-android:
     name: Build Android APK
@@ -32,8 +35,26 @@ jobs:
         working-directory: android/EggyRosCar
         run: gradle assembleDebug --stacktrace
 
+      - name: Rename APK
+        run: |
+          mkdir -p release
+          cp android/EggyRosCar/app/build/outputs/apk/debug/*.apk release/EggyRosCar-debug.apk
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: EggyRosCar-debug-apk
-          path: android/EggyRosCar/app/build/outputs/apk/debug/*.apk
+          path: release/EggyRosCar-debug.apk
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: Eggy ROS Car Android Latest
+          body: |
+            自动构建的 Eggy ROS Car Android debug APK。
+
+            默认 WebSocket: wss://liueggy.live/ws
+          files: release/EggyRosCar-debug.apk
+          prerelease: false
+          make_latest: true

@@ -45,18 +45,55 @@ struct ControlView: View {
     @EnvironmentObject var model: RobotViewModel
     var body: some View {
         NavigationStack {
-            VStack(spacing: 14) {
-                Button("前进") { model.cmd(x: 0.18, y: 0, z: 0) }.buttonStyle(.borderedProminent)
-                HStack { Button("左移") { model.cmd(x: 0, y: 0.18, z: 0) }; Button("停止") { model.stop() }.tint(.red); Button("右移") { model.cmd(x: 0, y: -0.18, z: 0) } }
-                Button("后退") { model.cmd(x: -0.18, y: 0, z: 0) }
-                HStack { Button("左转") { model.cmd(x: 0, y: 0, z: 0.45) }; Button("右转") { model.cmd(x: 0, y: 0, z: -0.45) } }
-                Divider()
-                Button(model.state?.system.autoExplore == true ? "停止自动探索" : "开始自动探索") { model.toggleExplore() }.buttonStyle(.borderedProminent)
-                Button("重置地图和小车") { model.reset() }
+            VStack(spacing: 0) {
+                ZStack(alignment: .topLeading) {
+                    RoundedRectangle(cornerRadius: 18).fill(Color(uiColor: .secondarySystemBackground))
+                    if let state = model.state {
+                        RobotMapCanvas(state: state) { x, y in model.setGoal(x: x, y: y) }
+                            .clipShape(RoundedRectangle(cornerRadius: 18))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("\(state.system.sceneName ?? "实时地图")")
+                            Text(String(format: "位置 %.2f, %.2f", state.robot.x, state.robot.y))
+                            Text(String(format: "已探索 %.1f%%", state.occupancyGrid?.stats.knownPercent ?? 0))
+                        }
+                        .font(.caption.monospaced())
+                        .padding(8)
+                        .background(.thinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .padding(10)
+                    } else {
+                        ContentUnavailableView("等待地图", systemImage: "map", description: Text("连接服务器后显示小车位置"))
+                    }
+                }
+                .frame(height: 320)
+                .padding()
+
+                VStack(spacing: 14) {
+                    Button("前进") { model.cmd(x: 0.18, y: 0, z: 0) }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                    HStack(spacing: 14) {
+                        Button("左移") { model.cmd(x: 0, y: 0.18, z: 0) }
+                        Button("停止") { model.stop() }.tint(.red)
+                        Button("右移") { model.cmd(x: 0, y: -0.18, z: 0) }
+                    }
+                    .controlSize(.large)
+                    Button("后退") { model.cmd(x: -0.18, y: 0, z: 0) }
+                    HStack(spacing: 14) {
+                        Button("左转") { model.cmd(x: 0, y: 0, z: 0.45) }
+                        Button("右转") { model.cmd(x: 0, y: 0, z: -0.45) }
+                    }
+                    HStack(spacing: 14) {
+                        Button(model.state?.system.autoExplore == true ? "停止自动探索" : "自动探索") { model.toggleExplore() }
+                        Button("重置") { model.reset() }
+                    }
+                }
+                .buttonStyle(.bordered)
+                .padding(.horizontal)
+                .padding(.bottom)
+                Spacer(minLength: 0)
             }
-            .buttonStyle(.bordered)
-            .padding()
-            .navigationTitle("手动控制")
+            .navigationTitle("控制小车")
         }
     }
 }

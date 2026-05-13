@@ -41,6 +41,15 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             build
 
+      - name: Generate app bundle metadata for sideload signers
+        run: |
+          /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable EggyRobotClient" build-device/Build/Products/Release-iphoneos/EggyRobotClient.app/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.eggy.robot.client" build-device/Build/Products/Release-iphoneos/EggyRobotClient.app/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleName EggyRobotClient" build-device/Build/Products/Release-iphoneos/EggyRobotClient.app/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :CFBundlePackageType string APPL" build-device/Build/Products/Release-iphoneos/EggyRobotClient.app/Info.plist || /usr/libexec/PlistBuddy -c "Set :CFBundlePackageType APPL" build-device/Build/Products/Release-iphoneos/EggyRobotClient.app/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :LSRequiresIPhoneOS bool true" build-device/Build/Products/Release-iphoneos/EggyRobotClient.app/Info.plist || /usr/libexec/PlistBuddy -c "Set :LSRequiresIPhoneOS true" build-device/Build/Products/Release-iphoneos/EggyRobotClient.app/Info.plist
+          plutil -lint build-device/Build/Products/Release-iphoneos/EggyRobotClient.app/Info.plist
+
       - name: Package unsigned IPA
         run: |
           APP_PATH=$(find build-device/Build/Products/Release-iphoneos -name 'EggyRobotClient.app' -type d | head -1)

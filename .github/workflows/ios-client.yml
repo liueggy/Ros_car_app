@@ -1,0 +1,96 @@
+name: iOS Client Build
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-client.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: ios/EggyRobotClient
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build unsigned app for simulator
+        run: |
+          xcodebuild \
+            -project EggyRobotClient.xcodeproj \
+            -scheme EggyRobotClient \
+            -sdk iphonesimulator \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package simulator app artifact
+        run: |
+          APP_PATH=$(find build/Build/Products/Release-iphonesimulator -name 'EggyRobotClient.app' -type d | head -1)
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" EggyRobotClient-simulator.zip
+
+      - name: Upload simulator artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EggyRobotClient-simulator
+          path: ios/EggyRobotClient/EggyRobotClient-simulator.zip
+
+  signed-ipa:
+    runs-on: macos-15
+    if: ${{ github.event_name == 'workflow_dispatch' && secrets.IOS_CERTIFICATE_P12 != '' && secrets.IOS_CERTIFICATE_PASSWORD != '' && secrets.IOS_PROVISIONING_PROFILE != '' }}
+    defaults:
+      run:
+        working-directory: ios/EggyRobotClient
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate
+      - name: Decode signing assets
+        env:
+          IOS_CERTIFICATE_P12: ${{ secrets.IOS_CERTIFICATE_P12 }}
+          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+        run: |
+          mkdir -p signing
+          echo "$IOS_CERTIFICATE_P12" | base64 --decode > signing/cert.p12
+          echo "$IOS_PROVISIONING_PROFILE" | base64 --decode > signing/profile.mobileprovision
+      - name: Install signing assets
+        env:
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+        run: |
+          security create-keychain -p actions build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p actions build.keychain
+          security import signing/cert.p12 -k build.keychain -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' /dev/stdin <<< $(security cms -D -i signing/profile.mobileprovision))
+          cp signing/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
+      - name: Archive
+        run: |
+          xcodebuild -project EggyRobotClient.xcodeproj -scheme EggyRobotClient -configuration Release -archivePath build/EggyRobotClient.xcarchive archive
+      - name: Export IPA
+        run: |
+          cat > ExportOptions.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict><key>method</key><string>ad-hoc</string><key>signingStyle</key><string>automatic</string></dict></plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath build/EggyRobotClient.xcarchive -exportPath build/export -exportOptionsPlist ExportOptions.plist
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-client-${{ github.run_number }}
+          name: EggyRobotClient iOS ${{ github.run_number }}
+          files: ios/EggyRobotClient/build/export/*.ipa

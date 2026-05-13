@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+.env
+DerivedData/
+build/
+*.xcuserdata/
+*.xcworkspace/xcuserdata/

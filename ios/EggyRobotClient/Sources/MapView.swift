@@ -81,8 +81,8 @@ struct RobotMapCanvas: View {
         })
         .overlay(alignment: .topLeading) {
             VStack(alignment: .leading) {
-                Text("已探索 \(state.occupancyGrid?.stats.knownPercent ?? 0, specifier: "%.1f")%")
-                Text("前方 \(state.summary.front, specifier: "%.2f") m")
+                Text(String(format: "已探索 %.1f%%", state.occupancyGrid?.stats.knownPercent ?? 0))
+                Text(String(format: "前方 %.2f m", state.summary.front))
             }.font(.caption.monospaced()).padding(8).background(.thinMaterial).clipShape(RoundedRectangle(cornerRadius: 8)).padding()
         }
     }

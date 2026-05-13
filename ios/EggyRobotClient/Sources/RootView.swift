@@ -26,12 +26,12 @@ struct DashboardView: View {
                 }
                 Section("机器人") {
                     LabeledContent("导航", value: model.state?.navStatus ?? "-")
-                    LabeledContent("电池", value: model.state.map { "\($0.battery.percent)% / \($0.battery.voltage, specifier: "%.2f")V" } ?? "-")
-                    LabeledContent("前方距离", value: model.state.map { "\($0.summary.front, specifier: "%.2f") m" } ?? "-")
-                    LabeledContent("最近障碍", value: model.state.map { "\($0.summary.nearest, specifier: "%.2f") m" } ?? "-")
+                    LabeledContent("电池", value: model.state.map { "\($0.battery.percent)% / " + String(format: "%.2fV", $0.battery.voltage) } ?? "-")
+                    LabeledContent("前方距离", value: model.state.map { String(format: "%.2f m", $0.summary.front) } ?? "-")
+                    LabeledContent("最近障碍", value: model.state.map { String(format: "%.2f m", $0.summary.nearest) } ?? "-")
                 }
                 Section("建图") {
-                    LabeledContent("已探索", value: model.state?.occupancyGrid.map { "\($0.stats.knownPercent, specifier: "%.1f")%" } ?? "-")
+                    LabeledContent("已探索", value: model.state?.occupancyGrid.map { String(format: "%.1f%%", $0.stats.knownPercent) } ?? "-")
                     LabeledContent("空闲格", value: model.state?.occupancyGrid.map { "\($0.stats.free)" } ?? "-")
                     LabeledContent("障碍格", value: model.state?.occupancyGrid.map { "\($0.stats.occupied)" } ?? "-")
                 }
@@ -84,7 +84,7 @@ struct SettingsView: View {
                     Button("保存当前地图") { model.saveMap(name: mapName) }
                     ForEach(model.state?.savedMaps ?? []) { item in
                         HStack {
-                            VStack(alignment: .leading) { Text(item.name); Text("已探索 \(item.stats?.knownPercent ?? 0, specifier: "%.1f")%").font(.caption).foregroundStyle(.secondary) }
+                            VStack(alignment: .leading) { Text(item.name); Text(String(format: "已探索 %.1f%%", item.stats?.knownPercent ?? 0)).font(.caption).foregroundStyle(.secondary) }
                             Spacer()
                             Button("加载") { model.loadMap(id: item.id) }
                         }

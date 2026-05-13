@@ -5,8 +5,11 @@ struct MapView: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                Color(.systemBackground).ignoresSafeArea()
                 if let state = model.state {
                     InteractiveRobotMap(state: state) { x, y in model.setGoal(x: x, y: y) }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
                 } else {
                     ContentUnavailableView("等待地图数据", systemImage: "wifi", description: Text("请确认服务器 WebSocket 已连接"))
                 }

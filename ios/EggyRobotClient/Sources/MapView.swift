@@ -1,5 +1,29 @@
 import SwiftUI
 
+struct MapPalette {
+    let backdrop: Color
+    let freeCell: Color
+    let occupiedCell: Color
+    let gridLine: Color
+    let border: Color
+
+    init(colorScheme: ColorScheme) {
+        if colorScheme == .dark {
+            backdrop = Color(white: 0.10)
+            freeCell = Color(white: 0.18)
+            occupiedCell = Color(white: 0.92).opacity(0.92)
+            gridLine = Color.white.opacity(0.10)
+            border = Color.white.opacity(0.12)
+        } else {
+            backdrop = Color(white: 0.86)
+            freeCell = Color.white
+            occupiedCell = Color.black.opacity(0.86)
+            gridLine = Color.gray.opacity(0.35)
+            border = Color.black.opacity(0.10)
+        }
+    }
+}
+
 struct InteractiveRobotMap: View {
     let state: NavViewMessage
     var onGoal: (Double, Double) -> Void
@@ -7,12 +31,20 @@ struct InteractiveRobotMap: View {
     @State private var lastScale: CGFloat = 1
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         GeometryReader { geo in
-            RobotMapCanvas(state: state, transform: MapTransform(scale: scale, offset: offset), size: geo.size, onGoal: onGoal)
-                .background(Color(white: 0.86))
-                .gesture(dragGesture)
+            let palette = MapPalette(colorScheme: colorScheme)
+            RobotMapCanvas(state: state, palette: palette, transform: MapTransform(scale: scale, offset: offset), size: geo.size, onGoal: onGoal)
+                .background(palette.backdrop)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(palette.border, lineWidth: 1)
+                }
+                .shadow(color: .black.opacity(colorScheme == .dark ? 0.45 : 0.10), radius: 10, y: 6)
+                .gesture(dragGesture(size: geo.size))
                 .simultaneousGesture(magnifyGesture)
                 .overlay(alignment: .bottomTrailing) {
                     Button("复位") { withAnimation { scale = 1; lastScale = 1; offset = .zero; lastOffset = .zero } }
@@ -23,7 +55,7 @@ struct InteractiveRobotMap: View {
         }
     }
 
-    private var dragGesture: some Gesture {
+    private func dragGesture(size: CGSize) -> some Gesture {
         DragGesture(minimumDistance: 2)
             .onChanged { value in
                 offset = CGSize(width: lastOffset.width + value.translation.width, height: lastOffset.height + value.translation.height)
@@ -31,7 +63,7 @@ struct InteractiveRobotMap: View {
             .onEnded { value in
                 if abs(value.translation.width) < 4 && abs(value.translation.height) < 4, let state = Optional(state) {
                     // tap-like goal setting
-                    let p = screenToWorld(value.location, state: state)
+                    let p = screenToWorld(value.location, state: state, size: size)
                     onGoal(p.x, p.y)
                 }
                 lastOffset = offset
@@ -44,10 +76,9 @@ struct InteractiveRobotMap: View {
             .onEnded { _ in lastScale = scale }
     }
 
-    private func screenToWorld(_ location: CGPoint, state: NavViewMessage) -> (x: Double, y: Double) {
-        // Approximate with current map size from screen bounds; precise conversion is handled in canvas transform visually.
-        let w = UIScreen.main.bounds.width
-        let h = max(1, UIScreen.main.bounds.height * 0.55)
+    private func screenToWorld(_ location: CGPoint, state: NavViewMessage, size: CGSize) -> (x: Double, y: Double) {
+        let w = max(1, size.width)
+        let h = max(1, size.height)
         let x0 = (location.x - offset.width - w * (1 - scale) / 2) / scale
         let y0 = (location.y - offset.height - h * (1 - scale) / 2) / scale
         let map = state.map
@@ -61,6 +92,7 @@ struct MapTransform { var scale: CGFloat; var offset: CGSize }
 
 struct RobotMapCanvas: View {
     let state: NavViewMessage
+    let palette: MapPalette
     var transform: MapTransform = MapTransform(scale: 1, offset: .zero)
     var size: CGSize? = nil
     var onGoal: (Double, Double) -> Void = { _, _ in }
@@ -110,7 +142,7 @@ struct RobotMapCanvas: View {
                     }
 
                     guard let blockValue else { continue }
-                    let color = blockValue == 0 ? Color.white : Color.black.opacity(0.86)
+                    let color = blockValue == 0 ? palette.freeCell : palette.occupiedCell
                     let rect = CGRect(
                         x: Double(gx) * cw,
                         y: size.height - Double(gy + blockH) * ch,
@@ -124,7 +156,7 @@ struct RobotMapCanvas: View {
         var gridPath = Path()
         for i in 0...12 { let x = size.width * Double(i) / 12; gridPath.move(to: CGPoint(x: x, y: 0)); gridPath.addLine(to: CGPoint(x: x, y: size.height)) }
         for i in 0...10 { let y = size.height * Double(i) / 10; gridPath.move(to: CGPoint(x: 0, y: y)); gridPath.addLine(to: CGPoint(x: size.width, y: y)) }
-        ctx.stroke(gridPath, with: .color(.gray.opacity(0.35)), lineWidth: 0.8)
+        ctx.stroke(gridPath, with: .color(palette.gridLine), lineWidth: 0.8)
         drawPath(state.globalPlan.map { p($0.x, $0.y) }, color: .blue, ctx: &ctx)
         drawPath(state.localPlan.map { p($0.x, $0.y) }, color: .yellow, ctx: &ctx, dashed: true)
         for pt in state.lidarPoints {

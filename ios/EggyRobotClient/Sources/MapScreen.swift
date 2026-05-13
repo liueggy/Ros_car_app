@@ -16,6 +16,10 @@ struct MapView: View {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button("重置") { model.reset() }
                     Button(model.state?.system.autoExplore == true ? "停止探索" : "自动探索") { model.toggleExplore() }
+                    if model.connected {
+                        Button(role: .destructive) { model.stop() } label: { Image(systemName: "stop.fill") }
+                            .tint(.red)
+                    }
                 }
             }
         }

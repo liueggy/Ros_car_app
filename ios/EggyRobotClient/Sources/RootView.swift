@@ -11,14 +11,6 @@ struct RootView: View {
             TasksView().tabItem { Label("任务", systemImage: "checklist") }.tag(3)
             SettingsView().tabItem { Label("设置", systemImage: "gearshape") }.tag(4)
         }
-        .safeAreaInset(edge: .bottom) {
-            if model.connected {
-                Button(role: .destructive) { model.stop() } label: { Label("急停", systemImage: "stop.fill").frame(maxWidth: .infinity) }
-                    .buttonStyle(.borderedProminent)
-                    .padding(.horizontal)
-                    .padding(.bottom, 4)
-            }
-        }
     }
 }
 
@@ -46,6 +38,7 @@ struct DashboardView: View {
                 }.padding()
             }
             .navigationTitle("ROS Car")
+            .toolbar { EmergencyStopToolbar() }
         }
     }
 }
@@ -81,6 +74,7 @@ struct ControlView: View {
                 }.buttonStyle(.bordered)
                 Spacer(minLength: 0)
             }.navigationTitle("控制")
+            .toolbar { EmergencyStopToolbar() }
         }
     }
 }
@@ -106,6 +100,7 @@ struct TasksView: View {
                     }
                 }
             }.navigationTitle("任务")
+            .toolbar { EmergencyStopToolbar() }
         }
     }
 }
@@ -123,6 +118,7 @@ struct SettingsView: View {
                 }
                 Section("日志") { ForEach(model.log, id: \.self) { Text($0).font(.caption.monospaced()) } }
             }.navigationTitle("设置").onAppear { urlText = model.serverURLString }
+            .toolbar { EmergencyStopToolbar() }
         }
     }
 }

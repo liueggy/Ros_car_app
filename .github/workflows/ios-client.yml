@@ -4,6 +4,10 @@ permissions:
   contents: write
   actions: read
 
+concurrency:
+  group: mobile-latest-release
+  cancel-in-progress: false
+
 on:
   push:
     branches: [ main ]
@@ -80,11 +84,11 @@ jobs:
           BUILD_TIME_UTC=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
           COMMIT_SHORT=$(git rev-parse --short HEAD)
           cat > unsigned-release-notes.md <<EOF
-          # EggyRobotClient 未签名 IPA
+          # Eggy ROS Car Mobile Latest
 
-          最新构建已自动更新。
+          同一个 Release 同时保留 Android APK 与 iOS IPA。两个平台可独立构建、独立更新，后发布的平台不会删除另一个平台的产物。
 
-          ## 构建信息
+          ## iOS 构建信息
 
           - 构建时间：${BUILD_TIME_UTC}
           - Workflow Run：#${GITHUB_RUN_NUMBER}
@@ -93,35 +97,23 @@ jobs:
           - Bundle ID：com.eggy.robot.client
           - Minimum iOS：17.0
 
-          ## 本次产物
+          ## iOS 产物
 
           - ROS Car-unsigned.ipa
 
           ## 说明
 
-          这是未签名 IPA，不能直接安装。请使用轻松签、iOS App Signer、Sideloadly、AltStore 或你自己的证书重新签名后安装。
+          iOS 产物是未签名 IPA，不能直接安装。请使用轻松签、iOS App Signer、Sideloadly、AltStore 或你自己的证书重新签名后安装。
 
-          ## 当前客户端能力
-
-          - 连接 Ros_car_web WebSocket 中转服务
-          - 实时显示小车状态、地图、雷达点、路径和目标点
-          - 控制页显示实时小地图，可边看地图边控制小车
-          - 支持手动控制、自动探索、重置、场景切换、保存/加载地图
+          Android 产物由 Android workflow 发布到同一个 Release：EggyRosCar-debug.apk。
           EOF
 
-      - name: Delete previous unsigned Release
-        if: ${{ github.event_name == 'push' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release delete unsigned-latest --yes --cleanup-tag || true
-
-      - name: Create unsigned Release
+      - name: Publish unsigned IPA to shared mobile Release
         if: ${{ github.event_name == 'push' }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: unsigned-latest
-          name: ROS Car Unsigned Latest
+          tag_name: mobile-latest
+          name: Eggy ROS Car Mobile Latest
           body_path: ios/EggyRobotClient/unsigned-release-notes.md
           files: ios/EggyRobotClient/ROS Car-unsigned.ipa
           make_latest: true

@@ -1,6 +1,6 @@
 # Ros_car_app
 
-Eggy ROS 小车 Apple 原生 iOS 客户端。
+Eggy ROS 小车原生移动客户端仓库：iOS SwiftUI 客户端 + Android 客户端。
 
 后端 Web/中转服务仓库：
 
@@ -14,9 +14,21 @@ https://github.com/liueggy/Ros_car_web
 wss://liueggy.live/ws
 ```
 
+## 仓库结构
+
+```text
+android/EggyRosCar/        Android Gradle 工程
+ios/EggyRobotClient/       iOS SwiftUI + XcodeGen 工程
+docs/                      维护说明
+.github/workflows/         自动构建与 Release 发布
+```
+
+维护说明见：[`docs/MAINTENANCE.md`](docs/MAINTENANCE.md)。
+
 ## 功能
 
-- SwiftUI 原生 iOS App
+- iOS SwiftUI 原生 App
+- Android 原生 App
 - WebSocket 接收服务器 `nav_view` 数据
 - 默认使用 `wss://liueggy.live/ws`，兼容 HTTPS/Nginx 反向代理
 - 连接状态区分：App ⇄ 云端 relay、云端 ⇄ 小车 agent、ROS 数据新鲜度
@@ -29,6 +41,8 @@ wss://liueggy.live/ws
 
 ## 本地开发
 
+### iOS
+
 ```bash
 cd ios/EggyRobotClient
 brew install xcodegen
@@ -36,17 +50,39 @@ xcodegen generate
 open EggyRobotClient.xcodeproj
 ```
 
-## GitHub Actions
+### Android
+
+```bash
+cd android/EggyRosCar
+gradle assembleDebug
+```
+
+## GitHub Actions / Release
 
 工作流：
 
 ```text
 .github/workflows/ios-client.yml
+.github/workflows/android-client.yml
 ```
 
-默认构建模拟器 app artifact。
+自动构建产物会发布到同一个滚动 Release：
 
-如需生成真机 IPA 并发布 Release，需要配置 GitHub Secrets：
+```text
+tag: mobile-latest
+name: Eggy ROS Car Mobile Latest
+```
+
+Release 中两个平台产物共存：
+
+- `EggyRosCar-debug.apk`
+- `ROS Car-unsigned.ipa`
+
+Android 和 iOS 工作流相互独立：任一平台重新构建只更新自己的资产，不会删除另一个平台的资产。
+
+> iOS 默认产物是未签名 IPA，不能直接安装。请用轻松签、iOS App Signer、Sideloadly、AltStore 或自己的证书重新签名。
+
+如需生成签名 IPA，需要配置 GitHub Secrets：
 
 ```text
 IOS_CERTIFICATE_P12

@@ -2,7 +2,28 @@ __pycache__/
 *.py[cod]
 .DS_Store
 .env
+.env.*
+!.env.example
+
+# iOS / Xcode
 DerivedData/
 build/
 *.xcuserdata/
 *.xcworkspace/xcuserdata/
+ios/EggyRobotClient/EggyRobotClient.xcodeproj/
+ios/EggyRobotClient/Payload/
+ios/EggyRobotClient/*.ipa
+ios/EggyRobotClient/*.zip
+ios/EggyRobotClient/signing/
+ios/EggyRobotClient/ExportOptions.plist
+
+# Android / Gradle
+.gradle/
+android/EggyRosCar/.gradle/
+android/EggyRosCar/**/build/
+android/EggyRosCar/local.properties
+*.apk
+*.aab
+
+# Release staging
+release/

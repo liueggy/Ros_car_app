@@ -11,6 +11,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: mobile-latest-release
+  cancel-in-progress: false
+
 jobs:
   build-android:
     name: Build Android APK
@@ -46,15 +50,27 @@ jobs:
           name: EggyRosCar-debug-apk
           path: release/EggyRosCar-debug.apk
 
-      - name: Publish GitHub Release
+      - name: Publish APK to shared mobile Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-latest
-          name: Eggy ROS Car Android Latest
+          tag_name: mobile-latest
+          name: Eggy ROS Car Mobile Latest
           body: |
-            自动构建的 Eggy ROS Car Android debug APK。
+            # Eggy ROS Car Mobile Latest
 
-            默认 WebSocket: wss://liueggy.live/ws
+            同一个 Release 同时保留 Android APK 与 iOS IPA。两个平台可独立构建、独立更新，后发布的平台不会删除另一个平台的产物。
+
+            ## Android 构建信息
+
+            - Workflow Run：#${{ github.run_number }}
+            - Commit：${{ github.sha }}
+            - 默认 WebSocket：wss://liueggy.live/ws
+
+            ## Android 产物
+
+            - EggyRosCar-debug.apk
+
+            iOS 产物由 iOS workflow 发布到同一个 Release：ROS Car-unsigned.ipa。
           files: release/EggyRosCar-debug.apk
           prerelease: false
           make_latest: true

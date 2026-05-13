@@ -43,12 +43,16 @@ jobs:
 
       - name: Generate app bundle metadata for sideload signers
         run: |
-          /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable EggyRobotClient" build-device/Build/Products/Release-iphoneos/EggyRobotClient.app/Info.plist
-          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.eggy.robot.client" build-device/Build/Products/Release-iphoneos/EggyRobotClient.app/Info.plist
-          /usr/libexec/PlistBuddy -c "Set :CFBundleName EggyRobotClient" build-device/Build/Products/Release-iphoneos/EggyRobotClient.app/Info.plist
-          /usr/libexec/PlistBuddy -c "Add :CFBundlePackageType string APPL" build-device/Build/Products/Release-iphoneos/EggyRobotClient.app/Info.plist || /usr/libexec/PlistBuddy -c "Set :CFBundlePackageType APPL" build-device/Build/Products/Release-iphoneos/EggyRobotClient.app/Info.plist
-          /usr/libexec/PlistBuddy -c "Add :LSRequiresIPhoneOS bool true" build-device/Build/Products/Release-iphoneos/EggyRobotClient.app/Info.plist || /usr/libexec/PlistBuddy -c "Set :LSRequiresIPhoneOS true" build-device/Build/Products/Release-iphoneos/EggyRobotClient.app/Info.plist
-          plutil -lint build-device/Build/Products/Release-iphoneos/EggyRobotClient.app/Info.plist
+          PLIST="build-device/Build/Products/Release-iphoneos/EggyRobotClient.app/Info.plist"
+          set_plist() {
+            /usr/libexec/PlistBuddy -c "Set :$1 $2" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :$1 $3 $2" "$PLIST"
+          }
+          set_plist CFBundleExecutable EggyRobotClient string
+          set_plist CFBundleIdentifier com.eggy.robot.client string
+          set_plist CFBundleName EggyRobotClient string
+          set_plist CFBundlePackageType APPL string
+          set_plist LSRequiresIPhoneOS true bool
+          plutil -lint "$PLIST"
 
       - name: Package unsigned IPA
         run: |

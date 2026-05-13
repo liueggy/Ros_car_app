@@ -103,7 +103,13 @@ jobs:
           - 支持手动控制、自动探索、重置、场景切换、保存/加载地图
           EOF
 
-      - name: Create or update unsigned Release
+      - name: Delete previous unsigned Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete unsigned-latest --yes --cleanup-tag || true
+
+      - name: Create unsigned Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: unsigned-latest

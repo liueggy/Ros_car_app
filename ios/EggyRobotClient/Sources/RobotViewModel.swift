@@ -6,6 +6,7 @@ final class RobotViewModel: ObservableObject {
     @Published var serverURLString = "ws://167.71.221.110:8088/ws"
     @Published var state: NavViewMessage?
     @Published var connected = false
+    @Published var connectionStatus = "未连接"
     @Published var log: [String] = []
 
     private var task: URLSessionWebSocketTask?
@@ -16,7 +17,8 @@ final class RobotViewModel: ObservableObject {
         let t = URLSession.shared.webSocketTask(with: url)
         task = t
         t.resume()
-        connected = true
+        connected = false
+        connectionStatus = "连接中"
         appendLog("连接中转服务器")
         receiveLoop()
     }
@@ -25,6 +27,7 @@ final class RobotViewModel: ObservableObject {
         task?.cancel(with: .goingAway, reason: nil)
         task = nil
         connected = false
+        connectionStatus = "未连接"
     }
 
     private func receiveLoop() {
@@ -34,6 +37,7 @@ final class RobotViewModel: ObservableObject {
                 switch result {
                 case .failure(let error):
                     self.connected = false
+                    self.connectionStatus = "连接失败"
                     self.appendLog("连接断开：\(error.localizedDescription)")
                 case .success(let message):
                     if case .string(let text) = message {
@@ -49,6 +53,8 @@ final class RobotViewModel: ObservableObject {
         guard let data = text.data(using: .utf8) else { return }
         if let decoded = try? JSONDecoder().decode(NavViewMessage.self, from: data), decoded.type == "nav_view" {
             state = decoded
+            connected = true
+            connectionStatus = "已连接"
         }
     }
 

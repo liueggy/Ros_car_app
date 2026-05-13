@@ -20,7 +20,7 @@ struct DashboardView: View {
         NavigationStack {
             List {
                 Section("连接") {
-                    LabeledContent("状态", value: model.connected ? "已连接" : "未连接")
+                    LabeledContent("状态", value: model.connectionStatus)
                     LabeledContent("服务器", value: model.state?.system.server ?? "-")
                     LabeledContent("场景", value: model.state?.system.sceneName ?? "-")
                 }

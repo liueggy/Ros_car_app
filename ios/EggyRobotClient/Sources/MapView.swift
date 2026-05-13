@@ -1,90 +1,122 @@
 import SwiftUI
 
-struct MapView: View {
-    @EnvironmentObject var model: RobotViewModel
+struct InteractiveRobotMap: View {
+    let state: NavViewMessage
+    var onGoal: (Double, Double) -> Void
+    @State private var scale: CGFloat = 1
+    @State private var lastScale: CGFloat = 1
+    @State private var offset: CGSize = .zero
+    @State private var lastOffset: CGSize = .zero
+
     var body: some View {
-        NavigationStack {
-            GeometryReader { proxy in
-                ZStack {
-                    Color(white: 0.86)
-                    if let state = model.state {
-                        RobotMapCanvas(state: state) { x, y in model.setGoal(x: x, y: y) }
-                    } else {
-                        ContentUnavailableView("等待地图数据", systemImage: "wifi", description: Text("请确认服务器 WebSocket 已连接"))
-                    }
+        GeometryReader { geo in
+            RobotMapCanvas(state: state, transform: MapTransform(scale: scale, offset: offset), size: geo.size, onGoal: onGoal)
+                .background(Color(white: 0.86))
+                .gesture(dragGesture)
+                .simultaneousGesture(magnifyGesture)
+                .overlay(alignment: .bottomTrailing) {
+                    Button("复位") { withAnimation { scale = 1; lastScale = 1; offset = .zero; lastOffset = .zero } }
+                        .font(.caption)
+                        .buttonStyle(.bordered)
+                        .padding(8)
                 }
-                .frame(width: proxy.size.width, height: proxy.size.height)
-            }
-            .navigationTitle("实时地图")
-            .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button("重置") { model.reset() }
-                    Button(model.state?.system.autoExplore == true ? "停止探索" : "自动探索") { model.toggleExplore() }
-                }
-            }
         }
+    }
+
+    private var dragGesture: some Gesture {
+        DragGesture(minimumDistance: 2)
+            .onChanged { value in
+                offset = CGSize(width: lastOffset.width + value.translation.width, height: lastOffset.height + value.translation.height)
+            }
+            .onEnded { value in
+                if abs(value.translation.width) < 4 && abs(value.translation.height) < 4, let state = Optional(state) {
+                    // tap-like goal setting
+                    let p = screenToWorld(value.location, state: state)
+                    onGoal(p.x, p.y)
+                }
+                lastOffset = offset
+            }
+    }
+
+    private var magnifyGesture: some Gesture {
+        MagnificationGesture()
+            .onChanged { value in scale = min(5, max(0.6, lastScale * value)) }
+            .onEnded { _ in lastScale = scale }
+    }
+
+    private func screenToWorld(_ location: CGPoint, state: NavViewMessage) -> (x: Double, y: Double) {
+        // Approximate with current map size from screen bounds; precise conversion is handled in canvas transform visually.
+        let w = UIScreen.main.bounds.width
+        let h = max(1, UIScreen.main.bounds.height * 0.55)
+        let x0 = (location.x - offset.width - w * (1 - scale) / 2) / scale
+        let y0 = (location.y - offset.height - h * (1 - scale) / 2) / scale
+        let map = state.map
+        let x = map.originX + Double(x0 / w) * map.widthM
+        let y = map.originY + Double((h - y0) / h) * map.heightM
+        return (x, y)
     }
 }
 
+struct MapTransform { var scale: CGFloat; var offset: CGSize }
+
 struct RobotMapCanvas: View {
     let state: NavViewMessage
-    var onGoal: (Double, Double) -> Void
+    var transform: MapTransform = MapTransform(scale: 1, offset: .zero)
+    var size: CGSize? = nil
+    var onGoal: (Double, Double) -> Void = { _, _ in }
 
     var body: some View {
-        Canvas { ctx, size in
-            let map = state.map
-            func p(_ x: Double, _ y: Double) -> CGPoint {
-                CGPoint(x: (x - map.originX) / map.widthM * size.width,
-                        y: size.height - (y - map.originY) / map.heightM * size.height)
-            }
-            if let grid = state.occupancyGrid {
-                let cw = size.width / Double(grid.width)
-                let ch = size.height / Double(grid.height)
-                for gy in 0..<grid.height {
-                    for gx in 0..<grid.width {
-                        let v = grid.data[gy * grid.width + gx]
-                        if v == -1 { continue }
-                        let color = v == 0 ? Color.white : Color.black.opacity(0.86)
-                        let rect = CGRect(x: Double(gx) * cw, y: size.height - Double(gy + 1) * ch, width: cw + 0.5, height: ch + 0.5)
-                        ctx.fill(Path(rect), with: .color(color))
-                    }
-                }
-            }
-            var gridPath = Path()
-            for i in 0...12 { let x = size.width * Double(i) / 12; gridPath.move(to: CGPoint(x: x, y: 0)); gridPath.addLine(to: CGPoint(x: x, y: size.height)) }
-            for i in 0...10 { let y = size.height * Double(i) / 10; gridPath.move(to: CGPoint(x: 0, y: y)); gridPath.addLine(to: CGPoint(x: size.width, y: y)) }
-            ctx.stroke(gridPath, with: .color(.gray.opacity(0.35)), lineWidth: 0.8)
-
-            drawPath(state.globalPlan.map { p($0.x, $0.y) }, color: .blue, ctx: &ctx)
-            drawPath(state.localPlan.map { p($0.x, $0.y) }, color: .yellow, ctx: &ctx, dashed: true)
-
-            for pt in state.lidarPoints {
-                let q = p(pt.x, pt.y)
-                ctx.fill(Path(ellipseIn: CGRect(x: q.x - 1.8, y: q.y - 1.8, width: 3.6, height: 3.6)), with: .color(.cyan.opacity(0.8)))
-            }
-
-            let goal = p(state.goal.x, state.goal.y)
-            ctx.stroke(Path(ellipseIn: CGRect(x: goal.x - 12, y: goal.y - 12, width: 24, height: 24)), with: .color(.green), lineWidth: 3)
-
-            let rp = p(state.robot.x, state.robot.y)
-            var robotShape = Path()
-            robotShape.move(to: CGPoint(x: 18, y: 0)); robotShape.addLine(to: CGPoint(x: -12, y: -10)); robotShape.addLine(to: CGPoint(x: -8, y: 0)); robotShape.addLine(to: CGPoint(x: -12, y: 10)); robotShape.closeSubpath()
-            var transform = CGAffineTransform(translationX: rp.x, y: rp.y).rotated(by: CGFloat(-state.robot.yaw))
-            ctx.fill(robotShape.applying(transform), with: .color(.green))
+        Canvas { ctx, canvasSize in
+            let size = size ?? canvasSize
+            ctx.translateBy(x: transform.offset.width + size.width * (1 - transform.scale) / 2,
+                            y: transform.offset.height + size.height * (1 - transform.scale) / 2)
+            ctx.scaleBy(x: transform.scale, y: transform.scale)
+            draw(ctx: &ctx, size: size)
         }
-        .contentShape(Rectangle())
-        .gesture(DragGesture(minimumDistance: 0).onEnded { value in
-            let size = value.startLocation
-            // Geometry unavailable here; use UIScreen-ish from view bounds via location normalized by hosting size is handled by wrapper limitations.
-            // For simplicity, map tap support is implemented approximately in a full-size coordinate space by MapReader in future.
-            _ = size
-        })
         .overlay(alignment: .topLeading) {
             VStack(alignment: .leading) {
                 Text(String(format: "已探索 %.1f%%", state.occupancyGrid?.stats.knownPercent ?? 0))
                 Text(String(format: "前方 %.2f m", state.summary.front))
             }.font(.caption.monospaced()).padding(8).background(.thinMaterial).clipShape(RoundedRectangle(cornerRadius: 8)).padding()
         }
+    }
+
+    private func draw(ctx: inout GraphicsContext, size: CGSize) {
+        let map = state.map
+        func p(_ x: Double, _ y: Double) -> CGPoint {
+            CGPoint(x: (x - map.originX) / map.widthM * size.width,
+                    y: size.height - (y - map.originY) / map.heightM * size.height)
+        }
+        if let grid = state.occupancyGrid {
+            let cw = size.width / Double(grid.width)
+            let ch = size.height / Double(grid.height)
+            for gy in 0..<grid.height {
+                for gx in 0..<grid.width {
+                    let v = grid.data[gy * grid.width + gx]
+                    if v == -1 { continue }
+                    let color = v == 0 ? Color.white : Color.black.opacity(0.86)
+                    let rect = CGRect(x: Double(gx) * cw, y: size.height - Double(gy + 1) * ch, width: cw + 0.5, height: ch + 0.5)
+                    ctx.fill(Path(rect), with: .color(color))
+                }
+            }
+        }
+        var gridPath = Path()
+        for i in 0...12 { let x = size.width * Double(i) / 12; gridPath.move(to: CGPoint(x: x, y: 0)); gridPath.addLine(to: CGPoint(x: x, y: size.height)) }
+        for i in 0...10 { let y = size.height * Double(i) / 10; gridPath.move(to: CGPoint(x: 0, y: y)); gridPath.addLine(to: CGPoint(x: size.width, y: y)) }
+        ctx.stroke(gridPath, with: .color(.gray.opacity(0.35)), lineWidth: 0.8)
+        drawPath(state.globalPlan.map { p($0.x, $0.y) }, color: .blue, ctx: &ctx)
+        drawPath(state.localPlan.map { p($0.x, $0.y) }, color: .yellow, ctx: &ctx, dashed: true)
+        for pt in state.lidarPoints {
+            let q = p(pt.x, pt.y)
+            ctx.fill(Path(ellipseIn: CGRect(x: q.x - 1.8, y: q.y - 1.8, width: 3.6, height: 3.6)), with: .color(.cyan.opacity(0.8)))
+        }
+        let goal = p(state.goal.x, state.goal.y)
+        ctx.stroke(Path(ellipseIn: CGRect(x: goal.x - 12, y: goal.y - 12, width: 24, height: 24)), with: .color(.green), lineWidth: 3)
+        let rp = p(state.robot.x, state.robot.y)
+        var robotShape = Path()
+        robotShape.move(to: CGPoint(x: 18, y: 0)); robotShape.addLine(to: CGPoint(x: -12, y: -10)); robotShape.addLine(to: CGPoint(x: -8, y: 0)); robotShape.addLine(to: CGPoint(x: -12, y: 10)); robotShape.closeSubpath()
+        var tr = CGAffineTransform(translationX: rp.x, y: rp.y).rotated(by: CGFloat(-state.robot.yaw))
+        ctx.fill(robotShape.applying(tr), with: .color(.green))
     }
 
     private func drawPath(_ points: [CGPoint], color: Color, ctx: inout GraphicsContext, dashed: Bool = false) {

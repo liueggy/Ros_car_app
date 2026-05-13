@@ -43,13 +43,14 @@ struct DashboardView: View {
 
 struct ControlView: View {
     @EnvironmentObject var model: RobotViewModel
+    @State private var speed = 0.18
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 ZStack(alignment: .topLeading) {
                     RoundedRectangle(cornerRadius: 18).fill(Color(uiColor: .secondarySystemBackground))
                     if let state = model.state {
-                        RobotMapCanvas(state: state) { x, y in model.setGoal(x: x, y: y) }
+                        InteractiveRobotMap(state: state) { x, y in model.setGoal(x: x, y: y) }
                             .clipShape(RoundedRectangle(cornerRadius: 18))
                         VStack(alignment: .leading, spacing: 4) {
                             Text("\(state.system.sceneName ?? "实时地图")")
@@ -65,30 +66,35 @@ struct ControlView: View {
                         ContentUnavailableView("等待地图", systemImage: "map", description: Text("连接服务器后显示小车位置"))
                     }
                 }
-                .frame(height: 320)
+                .frame(height: 300)
                 .padding()
 
                 VStack(spacing: 14) {
-                    Button("前进") { model.cmd(x: 0.18, y: 0, z: 0) }
-                        .buttonStyle(.borderedProminent)
+                    HStack {
+                        Text("速度")
+                        Slider(value: $speed, in: 0.06...0.35)
+                        Text(String(format: "%.2f", speed)).monospacedDigit().frame(width: 46, alignment: .trailing)
+                    }
+                    .font(.caption)
+                    .padding(.horizontal)
+
+                    HStack(spacing: 24) {
+                        JoystickControl(speed: speed, onCommand: { x, y, z in model.cmd(x: x, y: y, z: z) }, onStop: { model.stop() })
+                        VStack(spacing: 12) {
+                            Button("左转") { model.cmd(x: 0, y: 0, z: 0.45) }
+                            Button("停止") { model.stop() }.tint(.red)
+                            Button("右转") { model.cmd(x: 0, y: 0, z: -0.45) }
+                        }
+                        .buttonStyle(.bordered)
                         .controlSize(.large)
-                    HStack(spacing: 14) {
-                        Button("左移") { model.cmd(x: 0, y: 0.18, z: 0) }
-                        Button("停止") { model.stop() }.tint(.red)
-                        Button("右移") { model.cmd(x: 0, y: -0.18, z: 0) }
                     }
-                    .controlSize(.large)
-                    Button("后退") { model.cmd(x: -0.18, y: 0, z: 0) }
-                    HStack(spacing: 14) {
-                        Button("左转") { model.cmd(x: 0, y: 0, z: 0.45) }
-                        Button("右转") { model.cmd(x: 0, y: 0, z: -0.45) }
-                    }
+
                     HStack(spacing: 14) {
                         Button(model.state?.system.autoExplore == true ? "停止自动探索" : "自动探索") { model.toggleExplore() }
                         Button("重置") { model.reset() }
                     }
+                    .buttonStyle(.bordered)
                 }
-                .buttonStyle(.bordered)
                 .padding(.horizontal)
                 .padding(.bottom)
                 Spacer(minLength: 0)

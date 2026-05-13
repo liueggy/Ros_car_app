@@ -32,29 +32,28 @@ final class RobotViewModel: ObservableObject {
 
     private func receiveLoop() {
         task?.receive { [weak self] result in
-            Task { @MainActor in
-                guard let self else { return }
-                switch result {
-                case .failure(let error):
+            guard let self else { return }
+            switch result {
+            case .failure(let error):
+                Task { @MainActor in
                     self.connected = false
                     self.connectionStatus = "连接失败"
                     self.appendLog("连接断开：\(error.localizedDescription)")
-                case .success(let message):
-                    if case .string(let text) = message {
-                        self.handle(text)
+                }
+            case .success(let message):
+                var decoded: NavViewMessage?
+                if case .string(let text) = message, let data = text.data(using: .utf8) {
+                    decoded = try? JSONDecoder().decode(NavViewMessage.self, from: data)
+                }
+                Task { @MainActor in
+                    if let decoded, decoded.type == "nav_view" {
+                        self.state = decoded
+                        self.connected = true
+                        self.connectionStatus = "已连接"
                     }
                     self.receiveLoop()
                 }
             }
-        }
-    }
-
-    private func handle(_ text: String) {
-        guard let data = text.data(using: .utf8) else { return }
-        if let decoded = try? JSONDecoder().decode(NavViewMessage.self, from: data), decoded.type == "nav_view" {
-            state = decoded
-            connected = true
-            connectionStatus = "已连接"
         }
     }
 

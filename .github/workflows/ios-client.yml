@@ -10,6 +10,11 @@ on:
     paths:
       - 'ios/**'
       - '.github/workflows/ios-client.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-client.yml'
   workflow_dispatch:
 
 jobs:
@@ -70,6 +75,7 @@ jobs:
           path: ios/EggyRobotClient/ROS Car-unsigned.ipa
 
       - name: Generate unsigned Release notes
+        if: ${{ github.event_name == 'push' }}
         run: |
           BUILD_TIME_UTC=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
           COMMIT_SHORT=$(git rev-parse --short HEAD)
@@ -104,12 +110,14 @@ jobs:
           EOF
 
       - name: Delete previous unsigned Release
+        if: ${{ github.event_name == 'push' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete unsigned-latest --yes --cleanup-tag || true
 
       - name: Create unsigned Release
+        if: ${{ github.event_name == 'push' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: unsigned-latest

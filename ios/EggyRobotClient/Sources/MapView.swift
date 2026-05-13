@@ -90,12 +90,33 @@ struct RobotMapCanvas: View {
         if let grid = state.occupancyGrid {
             let cw = size.width / Double(grid.width)
             let ch = size.height / Double(grid.height)
-            for gy in 0..<grid.height {
-                for gx in 0..<grid.width {
-                    let v = grid.data[gy * grid.width + gx]
-                    if v == -1 { continue }
-                    let color = v == 0 ? Color.white : Color.black.opacity(0.86)
-                    let rect = CGRect(x: Double(gx) * cw, y: size.height - Double(gy + 1) * ch, width: cw + 0.5, height: ch + 0.5)
+            let stepX = cw < 1 ? min(12, Int(ceil(1 / max(0.0001, cw)))) : 1
+            let stepY = ch < 1 ? min(12, Int(ceil(1 / max(0.0001, ch)))) : 1
+            let step = max(1, min(12, max(stepX, stepY)))
+            for gy in stride(from: 0, to: grid.height, by: step) {
+                let blockH = min(step, grid.height - gy)
+                for gx in stride(from: 0, to: grid.width, by: step) {
+                    let blockW = min(step, grid.width - gx)
+
+                    var blockValue: Int? = nil
+                    for by in 0..<blockH {
+                        let row = (gy + by) * grid.width
+                        for bx in 0..<blockW {
+                            let v = grid.data[row + gx + bx]
+                            if v > 0 { blockValue = 100; break }
+                            if v == 0 { blockValue = 0 }
+                        }
+                        if blockValue == 100 { break }
+                    }
+
+                    guard let blockValue else { continue }
+                    let color = blockValue == 0 ? Color.white : Color.black.opacity(0.86)
+                    let rect = CGRect(
+                        x: Double(gx) * cw,
+                        y: size.height - Double(gy + blockH) * ch,
+                        width: Double(blockW) * cw + 0.5,
+                        height: Double(blockH) * ch + 0.5
+                    )
                     ctx.fill(Path(rect), with: .color(color))
                 }
             }

@@ -4,7 +4,7 @@ struct EmergencyStopToolbar: ToolbarContent {
     @EnvironmentObject var model: RobotViewModel
     var body: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            if model.connected {
+            if model.phase.canSend {
                 Button(role: .destructive) { model.stop() } label: {
                     Label("急停", systemImage: "stop.fill")
                 }

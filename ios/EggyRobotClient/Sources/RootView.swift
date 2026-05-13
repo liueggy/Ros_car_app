@@ -22,10 +22,10 @@ struct DashboardView: View {
                 VStack(spacing: 16) {
                     if let s = model.state {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 12)], spacing: 12) {
-                            MetricCard(title: "连接", value: model.connectionStatus, subtitle: s.system.sceneName ?? "-", color: model.connected ? .green : .orange)
-                            MetricCard(title: "电池", value: "\(s.battery.percent)%", subtitle: String(format: "%.2f V", s.battery.voltage), color: .blue)
-                            MetricCard(title: "导航", value: s.navStatus, subtitle: "move_base", color: .purple)
-                            MetricCard(title: "前方", value: String(format: "%.2f m", s.summary.front), subtitle: "最近障碍 " + String(format: "%.2f m", s.summary.nearest), color: .cyan)
+                            MetricCard(title: "连接", value: model.connectionStatus, subtitle: s.system.robotConnected == true ? (s.system.robotId ?? "eggy-001") : "robot offline", color: model.robotOnline ? .green : .orange)
+                            MetricCard(title: "电池", value: s.battery.percent.map { "\($0)%" } ?? "--", subtitle: s.battery.voltage.map { String(format: "%.2f V", $0) } ?? "--", color: .blue)
+                            MetricCard(title: "导航", value: s.navStatus, subtitle: s.system.streamMode ?? s.system.mode ?? "relay", color: .purple)
+                            MetricCard(title: "前方", value: s.summary.front.map { String(format: "%.2f m", $0) } ?? "--", subtitle: "最近障碍 " + (s.summary.nearest.map { String(format: "%.2f m", $0) } ?? "--"), color: .cyan)
                             MetricCard(title: "建图", value: String(format: "%.1f%%", s.occupancyGrid?.stats.knownPercent ?? 0), subtitle: "空闲 \(s.occupancyGrid?.stats.free ?? 0) / 障碍 \(s.occupancyGrid?.stats.occupied ?? 0)", color: .indigo)
                             MetricCard(title: "位置", value: String(format: "%.1f, %.1f", s.robot.x, s.robot.y), subtitle: String(format: "yaw %.0f°", s.robot.yaw * 180 / .pi), color: .teal)
                         }
@@ -122,7 +122,13 @@ struct SettingsView: View {
                 Section("服务器") {
                     TextField("WebSocket 地址", text: $urlText).textInputAutocapitalization(.never).autocorrectionDisabled()
                     Button("重新连接") { model.serverURLString = urlText; model.connect() }
-                    LabeledContent("状态", value: model.connectionStatus)
+                    Button("使用默认 wss://liueggy.live/ws") { urlText = RobotViewModel.defaultServerURL; model.serverURLString = urlText; model.connect() }
+                    LabeledContent("连接状态", value: model.connectionStatus)
+                    LabeledContent("服务器", value: model.serverHost)
+                    LabeledContent("机器人", value: model.state?.system.robotConnected == true ? (model.state?.system.robotId ?? "在线") : "离线")
+                    LabeledContent("ROS", value: model.state?.system.ros == true ? "正常" : "异常/未知")
+                    LabeledContent("数据延迟", value: model.dataAge.map { String(format: "%.1fs", $0) } ?? "--")
+                    LabeledContent("流模式", value: model.state?.system.streamMode ?? "--")
                 }
                 Section("日志") { ForEach(model.log, id: \.self) { Text($0).font(.caption.monospaced()) } }
             }.navigationTitle("设置").onAppear { urlText = model.serverURLString }

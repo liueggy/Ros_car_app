@@ -3,12 +3,15 @@
 SwiftUI 原生 iOS 客户端，连接 `Ros_car_web` 服务器 WebSocket：
 
 ```text
-ws://167.71.221.110:8088/ws
+wss://liueggy.live/ws
 ```
 
 ## 功能
 
 - 实时接收 `nav_view` 数据
+- 默认使用 `wss://liueggy.live/ws`，适配当前 HTTPS/Nginx 入口
+- 区分服务器连接、小车在线、ROS 状态和数据延迟
+- 心跳、超时检测、自动重连退避和发送前状态保护
 - 总览：连接、导航、电池、距离、建图进度
 - 地图：OccupancyGrid、雷达点、全局路径、局部路径、小车姿态、目标点
 - 控制：前进/后退/平移/旋转/停止、自动探索、重置地图

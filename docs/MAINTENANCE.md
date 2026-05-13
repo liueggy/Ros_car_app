@@ -20,7 +20,7 @@ The mobile clients publish into one shared rolling Release:
 - Name: `Eggy ROS Car Mobile Latest`
 - Assets:
   - `EggyRosCar-debug.apk`
-  - `ROS Car-unsigned.ipa`
+  - `ROS-Car-unsigned.ipa`
 
 Android and iOS workflows are intentionally independent. Rebuilding one platform updates its own asset in the shared Release without deleting the other platform's asset.
 

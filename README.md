@@ -76,7 +76,7 @@ name: Eggy ROS Car Mobile Latest
 Release 中两个平台产物共存：
 
 - `EggyRosCar-debug.apk`
-- `ROS Car-unsigned.ipa`
+- `ROS-Car-unsigned.ipa`
 
 Android 和 iOS 工作流相互独立：任一平台重新构建只更新自己的资产，不会删除另一个平台的资产。
 

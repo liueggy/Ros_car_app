@@ -21,7 +21,7 @@ struct DashboardView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     if let s = model.state {
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 12)], spacing: 12) {
                             MetricCard(title: "连接", value: model.connectionStatus, subtitle: s.system.sceneName ?? "-", color: model.connected ? .green : .orange)
                             MetricCard(title: "电池", value: "\(s.battery.percent)%", subtitle: String(format: "%.2f V", s.battery.voltage), color: .blue)
                             MetricCard(title: "导航", value: s.navStatus, subtitle: "move_base", color: .purple)
@@ -48,33 +48,41 @@ struct ControlView: View {
     @State private var mode: SpeedMode = .normal
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                if let state = model.state {
-                    InteractiveRobotMap(state: state) { x, y in model.setGoal(x: x, y: y) }
-                        .frame(height: 285)
-                        .clipShape(RoundedRectangle(cornerRadius: 18))
-                        .padding()
-                } else {
-                    ContentUnavailableView("等待地图", systemImage: "map", description: Text("连接服务器后显示小车位置")).frame(height: 285)
-                }
-                Picker("速度模式", selection: $mode) { ForEach(SpeedMode.allCases) { Text($0.rawValue).tag($0) } }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal)
-                HStack(spacing: 24) {
-                    JoystickControl(speed: mode.maxSpeed, onCommand: { x, y, _ in model.cmd(x: x, y: y, z: 0) }, onStop: { model.stop() })
-                    VStack(spacing: 12) {
-                        Button("左转") { model.cmd(x: 0, y: 0, z: 0.45) }
-                        Button("急停") { model.stop() }.tint(.red).buttonStyle(.borderedProminent)
-                        Button("右转") { model.cmd(x: 0, y: 0, z: -0.45) }
-                    }.buttonStyle(.bordered).controlSize(.large)
-                }.padding()
-                HStack(spacing: 14) {
-                    Button(model.state?.system.autoExplore == true ? "停止探索" : "自动探索") { model.toggleExplore() }
-                    Button("重置") { model.reset() }
-                }.buttonStyle(.bordered)
-                Spacer(minLength: 0)
-            }.navigationTitle("控制")
+            ViewThatFits(in: .vertical) {
+                controlContent
+                ScrollView { controlContent }
+            }
+            .navigationTitle("控制")
             .toolbar { EmergencyStopToolbar() }
+        }
+    }
+
+    @ViewBuilder
+    private var controlContent: some View {
+        VStack(spacing: 0) {
+            if let state = model.state {
+                InteractiveRobotMap(state: state) { x, y in model.setGoal(x: x, y: y) }
+                    .frame(height: 285)
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                    .padding()
+            } else {
+                ContentUnavailableView("等待地图", systemImage: "map", description: Text("连接服务器后显示小车位置")).frame(height: 285)
+            }
+            Picker("速度模式", selection: $mode) { ForEach(SpeedMode.allCases) { Text($0.rawValue).tag($0) } }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+            HStack(spacing: 24) {
+                JoystickControl(speed: mode.maxSpeed, onCommand: { x, y, _ in model.cmd(x: x, y: y, z: 0) }, onStop: { model.stop() })
+                VStack(spacing: 12) {
+                    Button("左转") { model.cmd(x: 0, y: 0, z: 0.45) }
+                    Button("急停") { model.stop() }.tint(.red).buttonStyle(.borderedProminent)
+                    Button("右转") { model.cmd(x: 0, y: 0, z: -0.45) }
+                }.buttonStyle(.bordered).controlSize(.large)
+            }.padding()
+            HStack(spacing: 14) {
+                Button(model.state?.system.autoExplore == true ? "停止探索" : "自动探索") { model.toggleExplore() }
+                Button("重置") { model.reset() }
+            }.buttonStyle(.bordered)
         }
     }
 }

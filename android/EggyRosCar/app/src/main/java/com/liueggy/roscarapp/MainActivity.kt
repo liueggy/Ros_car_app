@@ -42,6 +42,7 @@ private val tabs = listOf(
     TabItem("设置", Icons.Default.Settings, { SettingsScreen(it) })
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EggyRosCarApp() {
     val viewModel: RobotViewModel = viewModel()
@@ -52,6 +53,22 @@ fun EggyRosCarApp() {
     }
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(tabs[selectedTab].label, style = MaterialTheme.typography.titleMedium) },
+                actions = {
+                    val phase by viewModel.connectionPhase.collectAsState()
+                    if (phase.name == "ONLINE" || phase.name == "STALE") {
+                        IconButton(onClick = { viewModel.stop() }) {
+                            Icon(Icons.Default.Stop, "急停", tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            )
+        },
         bottomBar = {
             NavigationBar {
                 tabs.forEachIndexed { index, tab ->

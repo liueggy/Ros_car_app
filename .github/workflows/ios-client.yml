@@ -58,16 +58,16 @@ jobs:
         run: |
           APP_PATH=$(find build-device/Build/Products/Release-iphoneos -name 'EggyRobotClient.app' -type d | head -1)
           test -n "$APP_PATH"
-          rm -rf Payload EggyRobotClient-unsigned.ipa
+          rm -rf Payload "ROS Car-unsigned.ipa"
           mkdir -p Payload
           cp -R "$APP_PATH" Payload/
-          /usr/bin/zip -qry EggyRobotClient-unsigned.ipa Payload
+          /usr/bin/zip -qry "ROS Car-unsigned.ipa" Payload
 
       - name: Upload unsigned IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: EggyRobotClient-unsigned-ipa
-          path: ios/EggyRobotClient/EggyRobotClient-unsigned.ipa
+          name: ROS-Car-unsigned-ipa
+          path: ios/EggyRobotClient/ROS Car-unsigned.ipa
 
       - name: Generate unsigned Release notes
         run: |
@@ -89,7 +89,7 @@ jobs:
 
           ## 本次产物
 
-          - EggyRobotClient-unsigned.ipa
+          - ROS Car-unsigned.ipa
 
           ## 说明
 
@@ -113,9 +113,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: unsigned-latest
-          name: EggyRobotClient Unsigned Latest
+          name: ROS Car Unsigned Latest
           body_path: ios/EggyRobotClient/unsigned-release-notes.md
-          files: ios/EggyRobotClient/EggyRobotClient-unsigned.ipa
+          files: ios/EggyRobotClient/ROS Car-unsigned.ipa
           make_latest: true
 
       - name: Build unsigned app for simulator

@@ -31,7 +31,6 @@ struct DashboardView: View {
                         }
                         InteractiveRobotMap(state: s) { x, y in model.setGoal(x: x, y: y) }
                             .frame(height: 260)
-                            .clipShape(RoundedRectangle(cornerRadius: 18))
                     } else {
                         ContentUnavailableView("等待服务器数据", systemImage: "wifi", description: Text(model.connectionStatus))
                     }
@@ -63,7 +62,6 @@ struct ControlView: View {
             if let state = model.state {
                 InteractiveRobotMap(state: state) { x, y in model.setGoal(x: x, y: y) }
                     .frame(height: 285)
-                    .clipShape(RoundedRectangle(cornerRadius: 18))
                     .padding()
             } else {
                 ContentUnavailableView("等待地图", systemImage: "map", description: Text("连接服务器后显示小车位置")).frame(height: 285)

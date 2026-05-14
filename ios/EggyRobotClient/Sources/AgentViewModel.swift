@@ -69,10 +69,24 @@ final class AgentViewModel: ObservableObject {
         let promptMessages = buildMessages(userText: text)
         Task {
             do {
-                let content = try await client.complete(config: config, messages: promptMessages)
+                let content: String
+                if config.streamResponses {
+                    let assistantID = UUID()
+                    await MainActor.run { self.messages.append(AgentChatMessage(id: assistantID, role: .assistant, text: "")) }
+                    content = try await client.streamComplete(config: config, messages: promptMessages) { delta in
+                        if let index = self.messages.firstIndex(where: { $0.id == assistantID }) {
+                            self.messages[index].text += delta
+                        }
+                    }
+                } else {
+                    content = try await client.complete(config: config, messages: promptMessages)
+                    await MainActor.run { self.messages.append(AgentChatMessage(role: .assistant, text: content)) }
+                }
                 let plan = try decodePlan(from: content)
                 await MainActor.run {
-                    self.messages.append(AgentChatMessage(role: .assistant, text: plan.reply))
+                    if self.config.streamResponses, let index = self.messages.lastIndex(where: { $0.role == .assistant }) {
+                        self.messages[index].text = plan.reply
+                    }
                     self.handleActions(plan.actionList)
                     self.isLoading = false
                 }

@@ -50,17 +50,29 @@ struct AgentView: View {
     }
 
     private var inputBar: some View {
-        HStack(spacing: 10) {
-            TextField("和助手对话，例如：先右转一点再前进一点", text: $agent.input, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-                .lineLimit(1...4)
-            Button { agent.send() } label: {
-                if agent.isLoading { ProgressView() } else { Image(systemName: "paperplane.fill") }
+        HStack(alignment: .bottom, spacing: 10) {
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Color(.secondarySystemBackground))
+                TextField("和助手对话，例如：先右转一点再前进一点", text: $agent.input, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .lineLimit(1...5)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .frame(minHeight: 46)
             }
-            .buttonStyle(.borderedProminent)
+            Button { agent.send() } label: {
+                if agent.isLoading { ProgressView().frame(width: 20, height: 20) } else { Image(systemName: "arrow.up") }
+            }
+            .font(.headline)
+            .frame(width: 44, height: 44)
+            .background(agent.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || agent.isLoading || agent.isExecuting ? Color.gray.opacity(0.25) : Color.blue)
+            .foregroundStyle(.white)
+            .clipShape(Circle())
             .disabled(agent.isLoading || agent.isExecuting || agent.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
-        .padding()
+        .padding(.horizontal)
+        .padding(.vertical, 10)
         .background(.bar)
     }
 }
@@ -174,6 +186,7 @@ struct AgentSettingsView: View {
                     LabeledContent("Temperature", value: String(format: "%.1f", agent.config.temperature))
                 }
                 Section("动作与确认") {
+                    Toggle("流式输出回答", isOn: $agent.config.streamResponses)
                     Toggle("始终确认动作", isOn: $agent.config.alwaysConfirmActions)
                     Toggle("允许动作队列", isOn: $agent.config.allowActionQueue)
                     Stepper("最多 \(agent.config.maxQueueActions) 步", value: $agent.config.maxQueueActions, in: 1...10)

@@ -12,6 +12,7 @@ struct AgentConfig: Codable, Equatable {
     var maxAngularSpeed: Double = 0.45
     var maxActionDuration: Double = 1.5
     var obstacleStopDistance: Double = 0.55
+    var streamResponses: Bool = true
 
     var normalizedBaseURL: String {
         var value = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -22,10 +23,17 @@ struct AgentConfig: Codable, Equatable {
 
 struct AgentChatMessage: Identifiable, Equatable {
     enum Role: String { case user = "你", assistant = "助手", system = "系统" }
-    let id = UUID()
+    let id: UUID
     let role: Role
-    let text: String
-    let date: Date = Date()
+    var text: String
+    let date: Date
+
+    init(id: UUID = UUID(), role: Role, text: String, date: Date = Date()) {
+        self.id = id
+        self.role = role
+        self.text = text
+        self.date = date
+    }
 }
 
 struct AgentAction: Codable, Equatable, Identifiable {
@@ -75,8 +83,9 @@ struct OpenAIChatRequest: Codable {
     var messages: [Message]
     var temperature: Double
     var responseFormat: ResponseFormat?
+    var stream: Bool?
 
-    enum CodingKeys: String, CodingKey { case model, messages, temperature; case responseFormat = "response_format" }
+    enum CodingKeys: String, CodingKey { case model, messages, temperature, stream; case responseFormat = "response_format" }
     struct ResponseFormat: Codable { var type: String }
 }
 

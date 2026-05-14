@@ -177,6 +177,7 @@ final class AgentViewModel: ObservableObject {
             for (index, action) in actions.enumerated() {
                 await MainActor.run {
                     let idx = index + 1
+                    self.updateToolEvent(action.id, status: .running, result: nil)
                     self.messages.append(AgentChatMessage(role: .system, text: "执行第 \(idx)/\(actions.count) 步：\(self.describe(action))"))
                 }
                 if Task.isCancelled { break }

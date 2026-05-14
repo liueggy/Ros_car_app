@@ -9,7 +9,8 @@ struct RootView: View {
             ControlView().tabItem { Label("控制", systemImage: "gamecontroller") }.tag(1)
             MapView().tabItem { Label("地图", systemImage: "map") }.tag(2)
             TasksView().tabItem { Label("任务", systemImage: "checklist") }.tag(3)
-            SettingsView().tabItem { Label("设置", systemImage: "gearshape") }.tag(4)
+            AgentView().tabItem { Label("助手", systemImage: "sparkles") }.tag(4)
+            SettingsView().tabItem { Label("设置", systemImage: "gearshape") }.tag(5)
         }
     }
 }

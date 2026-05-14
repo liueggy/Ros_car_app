@@ -3,20 +3,21 @@ import SwiftUI
 struct RootView: View {
     @EnvironmentObject var model: RobotViewModel
     @State private var tab = 0
+    @State private var showingSettings = false
     var body: some View {
         TabView(selection: $tab) {
-            DashboardView().tabItem { Label("总览", systemImage: "square.grid.2x2") }.tag(0)
+            DashboardView(showingSettings: $showingSettings).tabItem { Label("总览", systemImage: "square.grid.2x2") }.tag(0)
             ControlView().tabItem { Label("控制", systemImage: "gamecontroller") }.tag(1)
-            MapView().tabItem { Label("地图", systemImage: "map") }.tag(2)
-            TasksView().tabItem { Label("任务", systemImage: "checklist") }.tag(3)
-            AgentView().tabItem { Label("助手", systemImage: "sparkles") }.tag(4)
-            SettingsView().tabItem { Label("设置", systemImage: "gearshape") }.tag(5)
+            TasksView().tabItem { Label("任务", systemImage: "checklist") }.tag(2)
+            AgentView().tabItem { Label("助手", systemImage: "sparkles") }.tag(3)
         }
+        .sheet(isPresented: $showingSettings) { SettingsView() }
     }
 }
 
 struct DashboardView: View {
     @EnvironmentObject var model: RobotViewModel
+    @Binding var showingSettings: Bool
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -38,7 +39,12 @@ struct DashboardView: View {
                 }.padding()
             }
             .navigationTitle("ROS Car")
-            .toolbar { EmergencyStopToolbar() }
+            .toolbar {
+                EmergencyStopToolbar()
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showingSettings = true } label: { Image(systemName: "gearshape") }
+                }
+            }
         }
     }
 }

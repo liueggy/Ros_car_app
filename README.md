@@ -92,21 +92,3 @@ EggyRosCar-debug.apk
 ROS-Car-unsigned.ipa
 ```
 
-两个平台独立构建。Android 更新时只替换 APK，iOS 更新时只替换 IPA。
-
-每次发布会在 Release 说明里写清楚：
-
-- 这次更新了什么
-- 构建时间
-- Workflow Run
-- Commit
-- 默认连接地址
-- 当前产物名称
-
-更新内容来自最近一次提交信息，避免 Release 页面只显示一段固定模板。
-
-## 维护
-
-常用维护说明在：[`docs/MAINTENANCE.md`](docs/MAINTENANCE.md)。
-
-如果改了 App 逻辑，直接提交到 `main` 后会自动构建对应平台。只改 README 不会触发移动端构建。

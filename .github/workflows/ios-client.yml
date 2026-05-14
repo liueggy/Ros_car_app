@@ -84,6 +84,7 @@ jobs:
         if: ${{ github.event_name == 'push' }}
         run: |
           BUILD_TIME_UTC=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          echo "RELEASE_UPDATED_AT=${BUILD_TIME_UTC}" >> "$GITHUB_ENV"
           COMMIT_SHORT=$(git rev-parse --short HEAD)
           LAST_TAG=$(git tag --sort=-creatordate | grep -v '^mobile-latest$' | head -1 || true)
           if [ -n "$LAST_TAG" ]; then
@@ -127,7 +128,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: mobile-latest
-          name: Eggy ROS Car Mobile Latest
+          name: Eggy ROS Car Mobile Latest - iOS ${{ env.RELEASE_UPDATED_AT }}
           body_path: ios/EggyRobotClient/unsigned-release-notes.md
           files: ios/EggyRobotClient/ROS-Car-unsigned.ipa
           make_latest: true

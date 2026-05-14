@@ -49,6 +49,7 @@ jobs:
       - name: Generate Release notes
         run: |
           BUILD_TIME_UTC=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          echo "RELEASE_UPDATED_AT=${BUILD_TIME_UTC}" >> "$GITHUB_ENV"
           COMMIT_SHORT=$(git rev-parse --short HEAD)
           LAST_TAG=$(git tag --sort=-creatordate | grep -v '^mobile-latest$' | head -1 || true)
           if [ -n "$LAST_TAG" ]; then
@@ -96,7 +97,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: mobile-latest
-          name: Eggy ROS Car Mobile Latest
+          name: Eggy ROS Car Mobile Latest - Android ${{ env.RELEASE_UPDATED_AT }}
           body_path: release/android-release-notes.md
           files: release/EggyRosCar-debug.apk
           prerelease: false

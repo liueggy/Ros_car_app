@@ -12,6 +12,7 @@ final class AgentViewModel: ObservableObject {
     @Published var pendingQueue: AgentActionQueue?
     @Published var toolEvents: [AgentToolCallEvent] = []
     @Published var streamingPreview = ""
+    @Published var scrollAnchor: UUID?
 
     var pendingAction: AgentAction? { pendingQueue?.actions.first }
 
@@ -67,6 +68,7 @@ final class AgentViewModel: ObservableObject {
         guard !text.isEmpty else { return }
         input = ""
         messages.append(AgentChatMessage(role: .user, text: text))
+        scrollAnchor = UUID()
         saveConfig()
         isLoading = true
         streamingPreview = ""
@@ -79,6 +81,7 @@ final class AgentViewModel: ObservableObject {
                 if config.streamResponses {
                     var previewBuffer = ""
                     var lastPreviewUpdate = Date.distantPast
+                    var lastScroll = Date.distantPast
                     content = try await client.streamComplete(config: config, messages: promptMessages) { delta in
                         previewBuffer += delta
                         let now = Date()
@@ -87,6 +90,10 @@ final class AgentViewModel: ObservableObject {
                         let clean = self.visibleStreamingText(previewBuffer)
                         if !clean.isEmpty {
                             await MainActor.run { self.streamingPreview = clean }
+                        }
+                        if now.timeIntervalSince(lastScroll) > 0.5 {
+                            lastScroll = now
+                            await MainActor.run { self.scrollAnchor = UUID() }
                         }
                     }
                 } else {
@@ -99,6 +106,7 @@ final class AgentViewModel: ObservableObject {
                     self.handleActions(plan.actionList)
                     self.isLoading = false
                     self.requestTask = nil
+                    self.scrollAnchor = UUID()
                 }
             } catch is CancellationError {
                 await MainActor.run {
@@ -168,8 +176,8 @@ final class AgentViewModel: ObservableObject {
         executionTask = Task {
             for (index, action) in actions.enumerated() {
                 await MainActor.run {
-                    self.updateToolEvent(action.id, status: .running, result: nil)
-                    self.messages.append(AgentChatMessage(role: .system, text: "执行第 \(index + 1)/\(actions.count) 步：\(self.describe(action))"))
+                    let idx = index + 1
+                    self.messages.append(AgentChatMessage(role: .system, text: "执行第 \(idx)/\(actions.count) 步：\(self.describe(action))"))
                 }
                 if Task.isCancelled { break }
                 let result = await toolExecutor?.execute(action, config: config) ?? "工具执行器未就绪。"

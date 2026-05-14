@@ -38,8 +38,8 @@ struct AgentView: View {
                         }
                         .padding()
                     }
-                    .onChange(of: agent.messages.count) { _, _ in
-                        if let last = agent.messages.last { withAnimation { proxy.scrollTo(last.id, anchor: .bottom) } }
+                    .onChange(of: agent.scrollAnchor) { _, _ in
+                        if let last = agent.messages.last { withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(last.id, anchor: .bottom) } }
                     }
                 }
                 if let queue = agent.pendingQueue { AgentActionPlanCard(agent: agent, queue: queue) }
@@ -69,29 +69,29 @@ struct AgentView: View {
     }
 
     private var inputBar: some View {
-        HStack(alignment: .bottom, spacing: 10) {
-            ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+        HStack(alignment: .bottom, spacing: 6) {
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(Color(.secondarySystemBackground))
                 TextField("发消息", text: $agent.input, axis: .vertical)
                     .textFieldStyle(.plain)
-                    .lineLimit(1...3)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
-                    .frame(minHeight: 38, maxHeight: 88)
+                    .lineLimit(1...2)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .frame(minHeight: 34)
             }
             Button { agent.send() } label: {
-                if agent.isLoading { ProgressView().frame(width: 20, height: 20) } else { Image(systemName: "arrow.up") }
+                if agent.isLoading { ProgressView().frame(width: 16, height: 16) } else { Image(systemName: "arrow.up") }
             }
-            .font(.headline)
-            .frame(width: 38, height: 38)
+            .font(.subheadline.weight(.semibold))
+            .frame(width: 34, height: 34)
             .background(agent.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || agent.isLoading || agent.isExecuting ? Color.gray.opacity(0.25) : Color.blue)
             .foregroundStyle(.white)
             .clipShape(Circle())
             .disabled(agent.isLoading || agent.isExecuting || agent.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
         .background(.bar)
     }
 }

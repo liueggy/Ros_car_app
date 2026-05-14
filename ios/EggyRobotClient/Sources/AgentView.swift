@@ -69,30 +69,32 @@ struct AgentView: View {
     }
 
     private var inputBar: some View {
-        HStack(alignment: .bottom, spacing: 6) {
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color(.secondarySystemBackground))
-                TextField("发消息", text: $agent.input, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .lineLimit(1...2)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .frame(minHeight: 34)
+        HStack(alignment: .center, spacing: 6) {
+            TextField("发消息", text: $agent.input)
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color(.secondarySystemBackground)))
+            Button(action: { agent.send() }) {
+                if agent.isLoading {
+                    ProgressView().frame(width: 16, height: 16)
+                } else {
+                    Image(systemName: "arrow.up").font(.system(size: 14, weight: .semibold))
+                }
             }
-            Button { agent.send() } label: {
-                if agent.isLoading { ProgressView().frame(width: 16, height: 16) } else { Image(systemName: "arrow.up") }
-            }
-            .font(.subheadline.weight(.semibold))
-            .frame(width: 34, height: 34)
-            .background(agent.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || agent.isLoading || agent.isExecuting ? Color.gray.opacity(0.25) : Color.blue)
+            .frame(width: 32, height: 32)
+            .background(canSend ? Color.blue : Color.gray.opacity(0.25))
             .foregroundStyle(.white)
             .clipShape(Circle())
-            .disabled(agent.isLoading || agent.isExecuting || agent.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(!canSend)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background(.bar)
+    }
+
+    private var canSend: Bool {
+        !agent.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !agent.isLoading && !agent.isExecuting
     }
 }
 

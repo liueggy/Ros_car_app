@@ -10,6 +10,7 @@ final class AgentViewModel: ObservableObject {
     @Published var isExecuting = false
     @Published var modelFetchStatus = ""
     @Published var pendingQueue: AgentActionQueue?
+    @Published var toolEvents: [AgentToolCallEvent] = []
 
     var pendingAction: AgentAction? { pendingQueue?.actions.first }
 
@@ -104,6 +105,7 @@ final class AgentViewModel: ObservableObject {
         let needsConfirm = config.alwaysConfirmActions || items.count > 1 || items.contains { $0.requiresConfirmation || $0.name != "stop" }
         if needsConfirm {
             pendingQueue = AgentActionQueue(actions: items, requiresConfirmation: true)
+            toolEvents = items.map { AgentToolCallEvent(id: $0.id, actionName: $0.name, detail: describe($0), status: .planned, result: nil) }
             messages.append(AgentChatMessage(role: .system, text: "已生成动作计划：\n\(describe(items))"))
         } else {
             execute(items)
@@ -121,6 +123,7 @@ final class AgentViewModel: ObservableObject {
     func cancelPendingAction() { cancelPendingQueue() }
 
     func cancelPendingQueue() {
+        for event in toolEvents where event.status == .planned { updateToolEvent(event.id, status: .skipped, result: "用户取消执行。") }
         pendingQueue = nil
         messages.append(AgentChatMessage(role: .system, text: "已取消执行。"))
     }
@@ -128,16 +131,38 @@ final class AgentViewModel: ObservableObject {
     private func execute(_ actions: [AgentAction]) {
         guard !actions.isEmpty else { return }
         isExecuting = true
+        if toolEvents.map(\.id) != actions.map(\.id) {
+            toolEvents = actions.map { AgentToolCallEvent(id: $0.id, actionName: $0.name, detail: describe($0), status: .planned, result: nil) }
+        }
         Task {
             for (index, action) in actions.enumerated() {
-                await MainActor.run { self.messages.append(AgentChatMessage(role: .system, text: "执行第 \(index + 1)/\(actions.count) 步：\(self.describe(action))")) }
+                await MainActor.run {
+                    self.updateToolEvent(action.id, status: .running, result: nil)
+                    self.messages.append(AgentChatMessage(role: .system, text: "执行第 \(index + 1)/\(actions.count) 步：\(self.describe(action))"))
+                }
                 let result = await toolExecutor?.execute(action, config: config) ?? "工具执行器未就绪。"
-                await MainActor.run { self.messages.append(AgentChatMessage(role: .system, text: result)) }
-                if result.contains("拒绝") || result.contains("未在线") || result.contains("不支持") { break }
+                let shouldStop = result.contains("拒绝") || result.contains("未在线") || result.contains("不支持")
+                await MainActor.run {
+                    self.updateToolEvent(action.id, status: shouldStop ? .skipped : .succeeded, result: result)
+                    self.messages.append(AgentChatMessage(role: .system, text: result))
+                    if shouldStop {
+                        let remaining = actions.dropFirst(index + 1)
+                        for item in remaining { self.updateToolEvent(item.id, status: .skipped, result: "前序步骤中止，未执行。") }
+                    }
+                }
+                if shouldStop { break }
                 if index < actions.count - 1 { try? await Task.sleep(nanoseconds: 250_000_000) }
             }
             await MainActor.run { self.isExecuting = false }
         }
+    }
+
+    private func updateToolEvent(_ id: UUID, status: AgentToolCallEvent.Status, result: String?) {
+        guard let idx = toolEvents.firstIndex(where: { $0.id == id }) else { return }
+        var updated = toolEvents[idx]
+        updated.status = status
+        if let result { updated.result = result }
+        toolEvents[idx] = updated
     }
 
     private func decodePlan(from content: String) throws -> AgentPlan {

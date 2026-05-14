@@ -118,6 +118,21 @@ struct TasksView: View {
     }
 }
 
+struct LogDetailView: View {
+    let logs: [String]
+    var body: some View {
+        List {
+            if logs.isEmpty {
+                ContentUnavailableView("暂无日志", systemImage: "doc.text.magnifyingglass")
+            } else {
+                ForEach(logs, id: \.self) { item in
+                    Text(item).font(.caption.monospaced()).textSelection(.enabled)
+                }
+            }
+        }
+        .navigationTitle("日志")
+    }
+}
 struct SettingsView: View {
     @EnvironmentObject var model: RobotViewModel
     @State private var urlText = ""
@@ -135,7 +150,11 @@ struct SettingsView: View {
                     LabeledContent("数据延迟", value: model.dataAge.map { String(format: "%.1fs", $0) } ?? "--")
                     LabeledContent("流模式", value: model.state?.system.streamMode ?? "--")
                 }
-                Section("日志") { ForEach(model.log, id: \.self) { Text($0).font(.caption.monospaced()) } }
+                NavigationLink {
+                    LogDetailView(logs: model.log)
+                } label: {
+                    LabeledContent("日志", value: "\(model.log.count) 条")
+                }
             }.navigationTitle("设置").onAppear { urlText = model.serverURLString }
             .toolbar { EmergencyStopToolbar() }
         }

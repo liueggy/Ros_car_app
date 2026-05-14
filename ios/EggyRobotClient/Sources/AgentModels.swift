@@ -69,6 +69,16 @@ struct AgentActionQueue: Identifiable, Equatable {
     var title: String { actions.count == 1 ? "待确认动作" : "待确认动作队列（\(actions.count) 步）" }
 }
 
+struct AgentToolCallEvent: Identifiable, Equatable {
+    enum Status: String { case planned = "计划中", running = "执行中", succeeded = "已完成", skipped = "已中止" }
+    let id: UUID
+    var actionName: String
+    var detail: String
+    var status: Status
+    var result: String?
+    var date: Date = Date()
+}
+
 struct OpenAIModel: Codable, Identifiable, Hashable {
     var id: String
 }

@@ -15,6 +15,7 @@ struct AgentView: View {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 12) {
                             quickPromptBar
+                            if !agent.toolEvents.isEmpty { AgentToolTimelineView(events: agent.toolEvents) }
                             ForEach(agent.messages) { message in AgentBubble(message: message).id(message.id) }
                         }
                         .padding()
@@ -74,6 +75,44 @@ struct AgentView: View {
         .padding(.horizontal)
         .padding(.vertical, 10)
         .background(.bar)
+    }
+}
+
+struct AgentToolTimelineView: View {
+    let events: [AgentToolCallEvent]
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("工具调用", systemImage: "wrench.and.screwdriver")
+                .font(.headline)
+            ForEach(events) { event in
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: icon(for: event.status))
+                        .foregroundStyle(color(for: event.status))
+                        .frame(width: 20)
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack {
+                            Text(event.actionName).font(.subheadline.weight(.semibold))
+                            Spacer()
+                            Text(event.status.rawValue).font(.caption).foregroundStyle(color(for: event.status))
+                        }
+                        Text(event.detail).font(.caption).foregroundStyle(.secondary)
+                        if let result = event.result { Text(result).font(.caption2).foregroundStyle(.secondary) }
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(.blue.opacity(0.08))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(.blue.opacity(0.18)))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func icon(for status: AgentToolCallEvent.Status) -> String {
+        switch status { case .planned: return "circle"; case .running: return "play.circle.fill"; case .succeeded: return "checkmark.circle.fill"; case .skipped: return "exclamationmark.circle.fill" }
+    }
+
+    private func color(for status: AgentToolCallEvent.Status) -> Color {
+        switch status { case .planned: return .secondary; case .running: return .blue; case .succeeded: return .green; case .skipped: return .orange }
     }
 }
 

@@ -25,7 +25,7 @@ App 通过 WebSocket 连接云端 relay，再由 relay 转到小车上的 ROS ag
 android/EggyRosCar/        Android 原生客户端
 ios/EggyRobotClient/       iOS SwiftUI 客户端
 docs/                      维护说明
-.github/workflows/         Android / iOS 自动构建
+.github/workflows/         iOS 自动构建
 ```
 
 ## Android
@@ -43,7 +43,7 @@ gradle assembleDebug
 android/EggyRosCar/app/build/outputs/apk/debug/*.apk
 ```
 
-GitHub Actions 会把 APK 上传到 Release：
+**注意：** Android 不再使用 GitHub Actions 自动构建。请在本地编译完成后，手动上传 APK 到 Release `mobile-latest`：
 
 ```text
 EggyRosCar-debug.apk

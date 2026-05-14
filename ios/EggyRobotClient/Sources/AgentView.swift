@@ -15,6 +15,7 @@ struct AgentView: View {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 12) {
                             quickPromptBar
+                            if !agent.streamingPreview.isEmpty { AgentBubble(message: AgentChatMessage(role: .assistant, text: agent.streamingPreview)) }
                             if !agent.toolEvents.isEmpty { AgentToolTimelineView(events: agent.toolEvents) }
                             ForEach(agent.messages) { message in AgentBubble(message: message).id(message.id) }
                         }
@@ -53,27 +54,27 @@ struct AgentView: View {
     private var inputBar: some View {
         HStack(alignment: .bottom, spacing: 10) {
             ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(Color(.secondarySystemBackground))
-                TextField("和助手对话，例如：先右转一点再前进一点", text: $agent.input, axis: .vertical)
+                TextField("发消息", text: $agent.input, axis: .vertical)
                     .textFieldStyle(.plain)
-                    .lineLimit(1...5)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .frame(minHeight: 46)
+                    .lineLimit(1...3)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .frame(minHeight: 38, maxHeight: 88)
             }
             Button { agent.send() } label: {
                 if agent.isLoading { ProgressView().frame(width: 20, height: 20) } else { Image(systemName: "arrow.up") }
             }
             .font(.headline)
-            .frame(width: 44, height: 44)
+            .frame(width: 38, height: 38)
             .background(agent.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || agent.isLoading || agent.isExecuting ? Color.gray.opacity(0.25) : Color.blue)
             .foregroundStyle(.white)
             .clipShape(Circle())
             .disabled(agent.isLoading || agent.isExecuting || agent.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .padding(.horizontal)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .background(.bar)
     }
 }

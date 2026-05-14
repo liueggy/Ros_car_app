@@ -11,6 +11,7 @@ final class AgentViewModel: ObservableObject {
     @Published var modelFetchStatus = ""
     @Published var pendingQueue: AgentActionQueue?
     @Published var toolEvents: [AgentToolCallEvent] = []
+    @Published var streamingPreview = ""
 
     var pendingAction: AgentAction? { pendingQueue?.actions.first }
 
@@ -66,33 +67,37 @@ final class AgentViewModel: ObservableObject {
         messages.append(AgentChatMessage(role: .user, text: text))
         saveConfig()
         isLoading = true
+        streamingPreview = ""
         pendingQueue = nil
         let promptMessages = buildMessages(userText: text)
         Task {
             do {
                 let content: String
                 if config.streamResponses {
-                    let assistantID = UUID()
-                    await MainActor.run { self.messages.append(AgentChatMessage(id: assistantID, role: .assistant, text: "")) }
+                    var previewBuffer = ""
+                    var lastPreviewUpdate = Date.distantPast
                     content = try await client.streamComplete(config: config, messages: promptMessages) { delta in
-                        if let index = self.messages.firstIndex(where: { $0.id == assistantID }) {
-                            self.messages[index].text += delta
+                        previewBuffer += delta
+                        let now = Date()
+                        guard now.timeIntervalSince(lastPreviewUpdate) > 0.12 else { return }
+                        lastPreviewUpdate = now
+                        let clean = self.visibleStreamingText(previewBuffer)
+                        if !clean.isEmpty {
+                            await MainActor.run { self.streamingPreview = clean }
                         }
                     }
                 } else {
                     content = try await client.complete(config: config, messages: promptMessages)
-                    await MainActor.run { self.messages.append(AgentChatMessage(role: .assistant, text: content)) }
                 }
                 let plan = try decodePlan(from: content)
                 await MainActor.run {
-                    if self.config.streamResponses, let index = self.messages.lastIndex(where: { $0.role == .assistant }) {
-                        self.messages[index].text = plan.reply
-                    }
+                    self.streamingPreview = ""
+                    self.messages.append(AgentChatMessage(role: .assistant, text: plan.reply))
                     self.handleActions(plan.actionList)
                     self.isLoading = false
                 }
             } catch {
-                await MainActor.run { self.messages.append(AgentChatMessage(role: .system, text: "请求失败：\(error.localizedDescription)")); self.isLoading = false }
+                await MainActor.run { self.streamingPreview = ""; self.messages.append(AgentChatMessage(role: .system, text: "请求失败：\(error.localizedDescription)")); self.isLoading = false }
             }
         }
     }
@@ -163,6 +168,20 @@ final class AgentViewModel: ObservableObject {
         updated.status = status
         if let result { updated.result = result }
         toolEvents[idx] = updated
+    }
+
+    private func visibleStreamingText(_ raw: String) -> String {
+        if let replyRange = raw.range(of: "\"reply\"") ?? raw.range(of: "'reply'") {
+            let tail = raw[replyRange.upperBound...]
+            if let colon = tail.firstIndex(of: ":") {
+                var value = String(tail[tail.index(after: colon)...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if value.hasPrefix("\"") || value.hasPrefix("'") { value.removeFirst() }
+                if let end = value.firstIndex(where: { $0 == "\"" || $0 == "'" }) { value = String(value[..<end]) }
+                return value.replacingOccurrences(of: "\\n", with: "\n").replacingOccurrences(of: "\\\"", with: "\"")
+            }
+        }
+        if raw.contains("{") || raw.contains("\"actions\"") || raw.contains("\"action\"") { return "正在思考并规划动作…" }
+        return raw.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func decodePlan(from content: String) throws -> AgentPlan {

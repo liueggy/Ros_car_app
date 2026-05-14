@@ -51,7 +51,7 @@ final class OpenAICompatibleClient {
         return content
     }
 
-    func streamComplete(config: AgentConfig, messages: [OpenAIChatRequest.Message], onDelta: @escaping @MainActor (String) -> Void) async throws -> String {
+    func streamComplete(config: AgentConfig, messages: [OpenAIChatRequest.Message], onDelta: @escaping (String) async -> Void) async throws -> String {
         guard !config.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ClientError.missingAPIKey }
         guard !config.model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ClientError.missingModel }
         guard let url = URL(string: config.normalizedBaseURL + "/chat/completions") else { throw ClientError.invalidURL }

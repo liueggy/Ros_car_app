@@ -5,6 +5,13 @@ struct AgentConfig: Codable, Equatable {
     var apiKey: String = ""
     var model: String = ""
     var temperature: Double = 0.2
+    var alwaysConfirmActions: Bool = true
+    var allowActionQueue: Bool = true
+    var maxQueueActions: Int = 6
+    var maxLinearSpeed: Double = 0.15
+    var maxAngularSpeed: Double = 0.45
+    var maxActionDuration: Double = 1.5
+    var obstacleStopDistance: Double = 0.55
 
     var normalizedBaseURL: String {
         var value = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -21,7 +28,8 @@ struct AgentChatMessage: Identifiable, Equatable {
     let date: Date = Date()
 }
 
-struct AgentAction: Codable, Equatable {
+struct AgentAction: Codable, Equatable, Identifiable {
+    var id = UUID()
     var name: String
     var requiresConfirmation: Bool
     var parameters: [String: String]
@@ -36,6 +44,21 @@ struct AgentAction: Codable, Equatable {
 struct AgentPlan: Codable, Equatable {
     var reply: String
     var action: AgentAction?
+    var actions: [AgentAction]?
+
+    var actionList: [AgentAction] {
+        if let actions, !actions.isEmpty { return actions }
+        if let action { return [action] }
+        return []
+    }
+}
+
+struct AgentActionQueue: Identifiable, Equatable {
+    let id = UUID()
+    var actions: [AgentAction]
+    var requiresConfirmation: Bool
+
+    var title: String { actions.count == 1 ? "待确认动作" : "待确认动作队列（\(actions.count) 步）" }
 }
 
 struct OpenAIModel: Codable, Identifiable, Hashable {

@@ -4,16 +4,19 @@ import Foundation
 final class AgentViewModel: ObservableObject {
     @Published var config = AgentConfig()
     @Published var availableModels: [String] = []
-    @Published var messages: [AgentChatMessage] = [AgentChatMessage(role: .assistant, text: "你好，我是 ROS Car 智能助手。你可以问我小车状态，也可以让我执行短距离移动、停止、探索、保存地图等操作。危险动作会先请求确认。")]
+    @Published var messages: [AgentChatMessage] = [AgentChatMessage(role: .assistant, text: "你好，我是 ROS Car 智能助手。你可以问我小车状态，也可以让我执行短距离移动、停止、探索、保存地图等操作。复杂指令会拆成动作队列，执行前需要确认。")]
     @Published var input = ""
     @Published var isLoading = false
+    @Published var isExecuting = false
     @Published var modelFetchStatus = ""
-    @Published var pendingAction: AgentAction?
+    @Published var pendingQueue: AgentActionQueue?
+
+    var pendingAction: AgentAction? { pendingQueue?.actions.first }
 
     private let client = OpenAICompatibleClient()
     private var toolExecutor: RobotToolExecutor?
     private weak var robot: RobotViewModel?
-    private let configKey = "agent.config.v1"
+    private let configKey = "agent.config.v2"
 
     init() { loadConfig() }
 
@@ -50,6 +53,11 @@ final class AgentViewModel: ObservableObject {
         }
     }
 
+    func useQuickPrompt(_ text: String) {
+        input = text
+        send()
+    }
+
     func send() {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
@@ -57,7 +65,7 @@ final class AgentViewModel: ObservableObject {
         messages.append(AgentChatMessage(role: .user, text: text))
         saveConfig()
         isLoading = true
-        pendingAction = nil
+        pendingQueue = nil
         let promptMessages = buildMessages(userText: text)
         Task {
             do {
@@ -65,14 +73,7 @@ final class AgentViewModel: ObservableObject {
                 let plan = try decodePlan(from: content)
                 await MainActor.run {
                     self.messages.append(AgentChatMessage(role: .assistant, text: plan.reply))
-                    if let action = plan.action {
-                        if action.requiresConfirmation || action.name != "stop" {
-                            self.pendingAction = action
-                            self.messages.append(AgentChatMessage(role: .system, text: "待确认动作：\(self.describe(action))"))
-                        } else {
-                            self.execute(action)
-                        }
-                    }
+                    self.handleActions(plan.actionList)
                     self.isLoading = false
                 }
             } catch {
@@ -81,20 +82,48 @@ final class AgentViewModel: ObservableObject {
         }
     }
 
-    func confirmPendingAction() {
-        guard let action = pendingAction else { return }
-        pendingAction = nil
-        execute(action)
+    private func handleActions(_ actions: [AgentAction]) {
+        var items = actions
+        if items.isEmpty { return }
+        if !config.allowActionQueue { items = Array(items.prefix(1)) }
+        items = Array(items.prefix(max(1, config.maxQueueActions)))
+        let needsConfirm = config.alwaysConfirmActions || items.count > 1 || items.contains { $0.requiresConfirmation || $0.name != "stop" }
+        if needsConfirm {
+            pendingQueue = AgentActionQueue(actions: items, requiresConfirmation: true)
+            messages.append(AgentChatMessage(role: .system, text: "已生成动作计划：\n\(describe(items))"))
+        } else {
+            execute(items)
+        }
     }
 
-    func cancelPendingAction() {
-        pendingAction = nil
+    func confirmPendingAction() { confirmPendingQueue() }
+
+    func confirmPendingQueue() {
+        guard let queue = pendingQueue else { return }
+        pendingQueue = nil
+        execute(queue.actions)
+    }
+
+    func cancelPendingAction() { cancelPendingQueue() }
+
+    func cancelPendingQueue() {
+        pendingQueue = nil
         messages.append(AgentChatMessage(role: .system, text: "已取消执行。"))
     }
 
-    private func execute(_ action: AgentAction) {
-        let result = toolExecutor?.execute(action) ?? "工具执行器未就绪。"
-        messages.append(AgentChatMessage(role: .system, text: result))
+    private func execute(_ actions: [AgentAction]) {
+        guard !actions.isEmpty else { return }
+        isExecuting = true
+        Task {
+            for (index, action) in actions.enumerated() {
+                await MainActor.run { self.messages.append(AgentChatMessage(role: .system, text: "执行第 \(index + 1)/\(actions.count) 步：\(self.describe(action))")) }
+                let result = await toolExecutor?.execute(action, config: config) ?? "工具执行器未就绪。"
+                await MainActor.run { self.messages.append(AgentChatMessage(role: .system, text: result)) }
+                if result.contains("拒绝") || result.contains("未在线") || result.contains("不支持") { break }
+                if index < actions.count - 1 { try? await Task.sleep(nanoseconds: 250_000_000) }
+            }
+            await MainActor.run { self.isExecuting = false }
+        }
     }
 
     private func decodePlan(from content: String) throws -> AgentPlan {
@@ -104,24 +133,22 @@ final class AgentViewModel: ObservableObject {
             let json = String(trimmed[start...end])
             if let data = json.data(using: .utf8) { return try JSONDecoder().decode(AgentPlan.self, from: data) }
         }
-        return AgentPlan(reply: content, action: nil)
+        return AgentPlan(reply: content, action: nil, actions: nil)
     }
 
     private func buildMessages(userText: String) -> [OpenAIChatRequest.Message] {
-        [
-            .init(role: "system", content: systemPrompt),
-            .init(role: "system", content: "当前机器人状态摘要：\n\(robotSummary())"),
-            .init(role: "user", content: userText)
-        ]
+        [.init(role: "system", content: systemPrompt), .init(role: "system", content: "当前机器人状态摘要：\n\(robotSummary())"), .init(role: "user", content: userText)]
     }
 
     private var systemPrompt: String {
         """
         你是 ROS Car App 内的智能助手。你必须只返回 JSON，不要返回 Markdown。
-        JSON 格式：{"reply":"给用户看的中文回复","action":{"name":"动作名","requires_confirmation":true,"parameters":{"key":"value"}}}
-        如果只需要回答问题，action 为 null。
-        可用动作：stop, move_forward_short, move_backward_short, turn_left_short, turn_right_short, start_auto_explore, stop_auto_explore, save_map, reset_map。
-        移动动作必须短时低速：speed_mps<=0.15，angular_rps<=0.45，duration_s<=1.5。除 stop 外所有动作 requires_confirmation 必须为 true。
+        JSON 格式：{"reply":"给用户看的中文回复","actions":[{"name":"动作名","requires_confirmation":true,"parameters":{"key":"value"}}]}
+        如果只需要回答问题，actions 为空数组或省略。兼容旧字段 action，但优先使用 actions。
+        可用动作：stop, move_forward_short, move_backward_short, move_front_right_short, move_front_left_short, turn_left_short, turn_right_short, start_auto_explore, stop_auto_explore, save_map, reset_map。
+        你可以把复合指令拆成最多 \(config.maxQueueActions) 个短动作。例如“先右转一点再前进一点”返回两个 actions。
+        当前只支持短动作近似执行，不支持精确距离/角度闭环。遇到“前进一米/转三圈/移动两米”等长距离长时间指令，应明确说明当前只能拆成安全短动作近似，动作总数不要超过限制。
+        移动动作参数：speed_mps<=\(config.maxLinearSpeed)，angular_rps<=\(config.maxAngularSpeed)，duration_s<=\(config.maxActionDuration)。除 stop 外所有动作 requires_confirmation 必须为 true。
         不要输出底层 WebSocket/ROS 协议。不要编造状态；依据状态摘要回答。
         """
     }
@@ -148,5 +175,14 @@ final class AgentViewModel: ObservableObject {
     func describe(_ action: AgentAction) -> String {
         if action.parameters.isEmpty { return action.name }
         return action.name + " " + action.parameters.map { "\($0.key)=\($0.value)" }.sorted().joined(separator: ", ")
+    }
+
+    func describe(_ actions: [AgentAction]) -> String {
+        actions.enumerated().map { "\($0.offset + 1). \(describe($0.element))" }.joined(separator: "\n")
+    }
+
+    var statusLine: String {
+        guard let robot else { return "未绑定机器人" }
+        return "\(robot.connectionStatus) · \(robot.robotOnline ? "小车在线" : "小车离线") · \(config.model.isEmpty ? "未选模型" : config.model)"
     }
 }

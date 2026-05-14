@@ -10,6 +10,23 @@ struct AgentView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                HStack(spacing: 10) {
+                    if agent.isLoading {
+                        Button("停止生成") { agent.stopGenerating() }
+                            .font(.caption)
+                            .buttonStyle(.bordered)
+                            .tint(.orange)
+                    }
+                    if agent.isExecuting {
+                        Button("停止队列") { agent.stopExecutionQueue() }
+                            .font(.caption)
+                            .buttonStyle(.borderedProminent)
+                            .tint(.red)
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.top, 8)
                 AgentStatusHeader(agent: agent, robot: robot)
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -226,6 +243,7 @@ struct AgentSettingsView: View {
                     LabeledContent("Temperature", value: String(format: "%.1f", agent.config.temperature))
                 }
                 Section("动作与确认") {
+                    Toggle("允许 Agent 控制小车", isOn: $agent.config.allowRobotControl)
                     Toggle("流式输出回答", isOn: $agent.config.streamResponses)
                     Toggle("始终确认动作", isOn: $agent.config.alwaysConfirmActions)
                     Toggle("允许动作队列", isOn: $agent.config.allowActionQueue)

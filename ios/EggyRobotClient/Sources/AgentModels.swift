@@ -13,6 +13,7 @@ struct AgentConfig: Codable, Equatable {
     var maxActionDuration: Double = 1.5
     var obstacleStopDistance: Double = 0.55
     var streamResponses: Bool = true
+    var allowRobotControl: Bool = true
 
     var normalizedBaseURL: String {
         var value = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -18,6 +18,8 @@ final class AgentViewModel: ObservableObject {
     private let client = OpenAICompatibleClient()
     private var toolExecutor: RobotToolExecutor?
     private weak var robot: RobotViewModel?
+    private var requestTask: Task<Void, Never>?
+    private var executionTask: Task<Void, Never>?
     private let configKey = "agent.config.v2"
 
     init() { loadConfig() }
@@ -70,7 +72,8 @@ final class AgentViewModel: ObservableObject {
         streamingPreview = ""
         pendingQueue = nil
         let promptMessages = buildMessages(userText: text)
-        Task {
+        requestTask?.cancel()
+        requestTask = Task {
             do {
                 let content: String
                 if config.streamResponses {
@@ -95,11 +98,29 @@ final class AgentViewModel: ObservableObject {
                     self.messages.append(AgentChatMessage(role: .assistant, text: plan.reply))
                     self.handleActions(plan.actionList)
                     self.isLoading = false
+                    self.requestTask = nil
+                }
+            } catch is CancellationError {
+                await MainActor.run {
+                    if self.requestTask != nil {
+                        self.messages.append(AgentChatMessage(role: .system, text: "已停止生成。"))
+                    }
+                    self.streamingPreview = ""
+                    self.isLoading = false
+                    self.requestTask = nil
                 }
             } catch {
-                await MainActor.run { self.streamingPreview = ""; self.messages.append(AgentChatMessage(role: .system, text: "请求失败：\(error.localizedDescription)")); self.isLoading = false }
+                await MainActor.run { self.streamingPreview = ""; self.messages.append(AgentChatMessage(role: .system, text: "请求失败：\(error.localizedDescription)")); self.isLoading = false; self.requestTask = nil }
             }
         }
+    }
+
+    func stopGenerating() {
+        requestTask?.cancel()
+        requestTask = nil
+        streamingPreview = ""
+        isLoading = false
+        messages.append(AgentChatMessage(role: .system, text: "已停止生成。"))
     }
 
     private func handleActions(_ actions: [AgentAction]) {
@@ -107,6 +128,10 @@ final class AgentViewModel: ObservableObject {
         if items.isEmpty { return }
         if !config.allowActionQueue { items = Array(items.prefix(1)) }
         items = Array(items.prefix(max(1, config.maxQueueActions)))
+        if !config.allowRobotControl {
+            messages.append(AgentChatMessage(role: .system, text: "Agent 控车已关闭，仅保留问答能力。"))
+            return
+        }
         let needsConfirm = config.alwaysConfirmActions || items.count > 1 || items.contains { $0.requiresConfirmation || $0.name != "stop" }
         if needsConfirm {
             pendingQueue = AgentActionQueue(actions: items, requiresConfirmation: true)
@@ -139,12 +164,14 @@ final class AgentViewModel: ObservableObject {
         if toolEvents.map(\.id) != actions.map(\.id) {
             toolEvents = actions.map { AgentToolCallEvent(id: $0.id, actionName: $0.name, detail: describe($0), status: .planned, result: nil) }
         }
-        Task {
+        executionTask?.cancel()
+        executionTask = Task {
             for (index, action) in actions.enumerated() {
                 await MainActor.run {
                     self.updateToolEvent(action.id, status: .running, result: nil)
                     self.messages.append(AgentChatMessage(role: .system, text: "执行第 \(index + 1)/\(actions.count) 步：\(self.describe(action))"))
                 }
+                if Task.isCancelled { break }
                 let result = await toolExecutor?.execute(action, config: config) ?? "工具执行器未就绪。"
                 let shouldStop = result.contains("拒绝") || result.contains("未在线") || result.contains("不支持")
                 await MainActor.run {
@@ -158,8 +185,19 @@ final class AgentViewModel: ObservableObject {
                 if shouldStop { break }
                 if index < actions.count - 1 { try? await Task.sleep(nanoseconds: 250_000_000) }
             }
-            await MainActor.run { self.isExecuting = false }
+            await MainActor.run { self.isExecuting = false; self.executionTask = nil }
         }
+    }
+
+    func stopExecutionQueue() {
+        executionTask?.cancel()
+        executionTask = nil
+        isExecuting = false
+        robot?.stop()
+        for event in toolEvents where event.status == .planned || event.status == .running {
+            updateToolEvent(event.id, status: .skipped, result: "用户停止执行队列。")
+        }
+        messages.append(AgentChatMessage(role: .system, text: "已停止执行队列，并发送停止命令。"))
     }
 
     private func updateToolEvent(_ id: UUID, status: AgentToolCallEvent.Status, result: String?) {
@@ -204,6 +242,7 @@ final class AgentViewModel: ObservableObject {
         JSON 格式：{"reply":"给用户看的中文回复","actions":[{"name":"动作名","requires_confirmation":true,"parameters":{"key":"value"}}]}
         如果只需要回答问题，actions 为空数组或省略。兼容旧字段 action，但优先使用 actions。
         可用动作：stop, move_forward_short, move_backward_short, move_front_right_short, move_front_left_short, turn_left_short, turn_right_short, start_auto_explore, stop_auto_explore, save_map, reset_map。
+        当前 Agent 控车开关：\(config.allowRobotControl ? "开启" : "关闭")。如果关闭，不要生成 actions，只做状态解释和建议。
         你可以把复合指令拆成最多 \(config.maxQueueActions) 个短动作。例如“先右转一点再前进一点”返回两个 actions。
         当前只支持短动作近似执行，不支持精确距离/角度闭环。遇到“前进一米/转三圈/移动两米”等长距离长时间指令，应明确说明当前只能拆成安全短动作近似，动作总数不要超过限制。
         移动动作参数：speed_mps<=\(config.maxLinearSpeed)，angular_rps<=\(config.maxAngularSpeed)，duration_s<=\(config.maxActionDuration)。除 stop 外所有动作 requires_confirmation 必须为 true。

@@ -30,6 +30,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 20
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -83,10 +85,23 @@ jobs:
         run: |
           BUILD_TIME_UTC=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
           COMMIT_SHORT=$(git rev-parse --short HEAD)
+          LAST_TAG=$(git tag --sort=-creatordate | grep -v '^mobile-latest$' | head -1 || true)
+          if [ -n "$LAST_TAG" ]; then
+            CHANGES=$(git log --pretty='- %s (%h)' "$LAST_TAG"..HEAD -- ios .github/workflows/ios-client.yml | head -20)
+          else
+            CHANGES=$(git log -5 --pretty='- %s (%h)' -- ios .github/workflows/ios-client.yml)
+          fi
+          if [ -z "$CHANGES" ]; then
+            CHANGES=$(git log -5 --pretty='- %s (%h)')
+          fi
           cat > unsigned-release-notes.md <<EOF
           # Eggy ROS Car Mobile Latest
 
-          同一个 Release 同时保留 Android APK 与 iOS IPA。两个平台可独立构建、独立更新，后发布的平台不会删除另一个平台的产物。
+          这里放最新的手机端构建产物。Android 和 iOS 共用这个 Release，后发布的平台只会更新自己的文件。
+
+          ## 本次 iOS 更新
+
+          ${CHANGES}
 
           ## iOS 构建信息
 
@@ -97,15 +112,14 @@ jobs:
           - Bundle ID：com.eggy.robot.client
           - Minimum iOS：17.0
 
-          ## iOS 产物
+          ## 当前产物
 
-          - ROS-Car-unsigned.ipa
+          - Android：EggyRosCar-debug.apk
+          - iOS：ROS-Car-unsigned.ipa
 
           ## 说明
 
           iOS 产物是未签名 IPA，不能直接安装。请使用轻松签、iOS App Signer、Sideloadly、AltStore 或你自己的证书重新签名后安装。
-
-          Android 产物由 Android workflow 发布到同一个 Release：EggyRosCar-debug.apk。
           EOF
 
       - name: Publish unsigned IPA to shared mobile Release

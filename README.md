@@ -1,47 +1,57 @@
 # Ros_car_app
 
-Eggy ROS 小车原生移动客户端仓库：iOS SwiftUI 客户端 + Android 客户端。
+Eggy ROS 小车的原生移动端。这个仓库只放手机 App：Android 和 iOS。云端中转服务、网页控制台在另一个仓库。
 
-后端 Web/中转服务仓库：
+- 后端仓库：<https://github.com/liueggy/Ros_car_web>
+- 默认连接：`wss://liueggy.live/ws`
+- 最新安装包：GitHub Release `mobile-latest`
+
+## 现在能做什么
+
+App 通过 WebSocket 连接云端 relay，再由 relay 转到小车上的 ROS agent。手机不直接连 ROS Master。
+
+主要功能：
+
+- 查看小车在线状态、ROS 数据新鲜度、电池、导航状态
+- 显示地图、雷达点、路径、小车姿态和目标点
+- 手动控制：前进、后退、左右平移、旋转、急停
+- 建图相关：自动探索、重置地图、保存/加载地图
+- 常用任务入口和连接参数设置
+- 断线自动重连，发送控制指令前会检查连接状态
+
+## 目录
 
 ```text
-https://github.com/liueggy/Ros_car_web
-```
-
-默认连接服务器：
-
-```text
-wss://liueggy.live/ws
-```
-
-## 仓库结构
-
-```text
-android/EggyRosCar/        Android Gradle 工程
-ios/EggyRobotClient/       iOS SwiftUI + XcodeGen 工程
+android/EggyRosCar/        Android 原生客户端
+ios/EggyRobotClient/       iOS SwiftUI 客户端
 docs/                      维护说明
-.github/workflows/         自动构建与 Release 发布
+.github/workflows/         Android / iOS 自动构建
 ```
 
-维护说明见：[`docs/MAINTENANCE.md`](docs/MAINTENANCE.md)。
+## Android
 
-## 功能
+本地构建：
 
-- iOS SwiftUI 原生 App
-- Android 原生 App
-- WebSocket 接收服务器 `nav_view` 数据
-- 默认使用 `wss://liueggy.live/ws`，兼容 HTTPS/Nginx 反向代理
-- 连接状态区分：App ⇄ 云端 relay、云端 ⇄ 小车 agent、ROS 数据新鲜度
-- 内置心跳、超时检测、自动重连退避与发送前连接状态保护
-- 总览、电池、导航状态、建图进度
-- 地图显示：OccupancyGrid、雷达点、路径、小车姿态、目标点
-- 手动控制：前进、后退、平移、旋转、停止
-- 自动探索、重置地图
-- 预设场景、保存/加载地图
+```bash
+cd android/EggyRosCar
+gradle assembleDebug
+```
 
-## 本地开发
+构建产物：
 
-### iOS
+```text
+android/EggyRosCar/app/build/outputs/apk/debug/*.apk
+```
+
+GitHub Actions 会把 APK 上传到 Release：
+
+```text
+EggyRosCar-debug.apk
+```
+
+## iOS
+
+本地打开工程：
 
 ```bash
 cd ios/EggyRobotClient
@@ -50,42 +60,53 @@ xcodegen generate
 open EggyRobotClient.xcodeproj
 ```
 
-### Android
-
-```bash
-cd android/EggyRosCar
-gradle assembleDebug
-```
-
-## GitHub Actions / Release
-
-工作流：
+Actions 默认构建的是未签名 IPA：
 
 ```text
-.github/workflows/ios-client.yml
-.github/workflows/android-client.yml
+ROS-Car-unsigned.ipa
 ```
 
-自动构建产物会发布到同一个滚动 Release：
+未签名 IPA 不能直接安装，需要用轻松签、Sideloadly、AltStore、iOS App Signer，或者自己的开发者证书重新签名。
 
-```text
-tag: mobile-latest
-name: Eggy ROS Car Mobile Latest
-```
-
-Release 中两个平台产物共存：
-
-- `EggyRosCar-debug.apk`
-- `ROS-Car-unsigned.ipa`
-
-Android 和 iOS 工作流相互独立：任一平台重新构建只更新自己的资产，不会删除另一个平台的资产。
-
-> iOS 默认产物是未签名 IPA，不能直接安装。请用轻松签、iOS App Signer、Sideloadly、AltStore 或自己的证书重新签名。
-
-如需生成签名 IPA，需要配置 GitHub Secrets：
+如果以后要在 Actions 里出签名包，需要配置这些 Secrets：
 
 ```text
 IOS_CERTIFICATE_P12
 IOS_CERTIFICATE_PASSWORD
 IOS_PROVISIONING_PROFILE
 ```
+
+## Release 规则
+
+Android 和 iOS 共用一个滚动 Release：
+
+```text
+tag: mobile-latest
+name: Eggy ROS Car Mobile Latest
+```
+
+里面保留两个文件：
+
+```text
+EggyRosCar-debug.apk
+ROS-Car-unsigned.ipa
+```
+
+两个平台独立构建。Android 更新时只替换 APK，iOS 更新时只替换 IPA。
+
+每次发布会在 Release 说明里写清楚：
+
+- 这次更新了什么
+- 构建时间
+- Workflow Run
+- Commit
+- 默认连接地址
+- 当前产物名称
+
+更新内容来自最近一次提交信息，避免 Release 页面只显示一段固定模板。
+
+## 维护
+
+常用维护说明在：[`docs/MAINTENANCE.md`](docs/MAINTENANCE.md)。
+
+如果改了 App 逻辑，直接提交到 `main` 后会自动构建对应平台。只改 README 不会触发移动端构建。

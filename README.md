@@ -6,6 +6,16 @@ Eggy ROS 小车的原生移动端。这个仓库只放手机 App：Android 和 i
 - 默认连接：`wss://liueggy.live/ws`
 - 最新安装包：GitHub Release `mobile-latest`
 
+## 界面预览
+
+### iOS 版
+
+![ROS Car iOS 界面展示](docs/images/ros-car-ios-showcase.png)
+
+### Android 版
+
+![ROS Car Android 界面展示](docs/images/ros-car-android-showcase.png)
+
 ## 现在能做什么
 
 App 通过 WebSocket 连接云端 relay，再由 relay 转到小车上的 ROS agent。手机不直接连 ROS Master。

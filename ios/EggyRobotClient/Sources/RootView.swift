@@ -82,23 +82,32 @@ struct ControlView: View {
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
             HStack(spacing: 24) {
-                JoystickControl(speed: mode.maxSpeed, onCommand: { x, y, _ in model.cmd(x: x, y: y, z: 0) }, onStop: { model.stop() })
+                JoystickControl(speed: mode.maxSpeed, isEnabled: model.phase.canSend && model.robotOnline, onCommand: { x, y, _ in model.cmd(x: x, y: y, z: 0) }, onStop: { model.stop() })
                 VStack(spacing: 12) {
                     Button("左转") { model.cmd(x: 0, y: 0, z: 0.45) }
+                        .disabled(!canDrive)
                     Button("急停") { model.stop() }.tint(.red).buttonStyle(.borderedProminent)
                     Button("右转") { model.cmd(x: 0, y: 0, z: -0.45) }
+                        .disabled(!canDrive)
                 }.buttonStyle(.bordered).controlSize(.large)
             }.padding(.horizontal)
             HStack(spacing: 14) {
                 Button(model.state?.system.autoExplore == true ? "停止探索" : "自动探索") { model.toggleExplore() }
+                    .disabled(!canDrive)
                 Button("重置") { model.reset() }
+                    .disabled(!model.phase.canSend)
             }.buttonStyle(.bordered)
+            if !canDrive {
+                Label("小车未在线或连接不可发送，已禁用移动控制。", systemImage: "lock.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
             Text("提示：摇杆松手会自动停止；急停按钮始终可用。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.bottom, 8)
         }
-    }
+    private var canDrive: Bool { model.phase.canSend && model.robotOnline }
 }
 
 struct RobotStatusStrip: View {
@@ -132,17 +141,47 @@ struct TasksView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("任务") {
-                    Button(model.state?.system.autoExplore == true ? "停止自动探索" : "开始自动探索") { model.toggleExplore() }
-                    Button("重置并重新建图") { model.reset() }
-                    HStack { TextField("地图名称", text: $mapName); Button("保存") { model.saveMap(name: mapName) } }
+                if !canDrive {
+                    Section {
+                        Label("小车未在线或连接不可发送，任务操作会暂时禁用。", systemImage: "wifi.slash")
+                            .foregroundStyle(.orange)
+                    }
                 }
-                Section("预设场景") { ForEach(model.state?.scenes ?? []) { scene in Button(scene.name) { model.setScene(scene.id) } } }
+                Section("探索与建图") {
+                    Button(model.state?.system.autoExplore == true ? "停止自动探索" : "开始自动探索") { model.toggleExplore() }
+                        .disabled(!canDrive)
+                    Button("重置并重新建图", role: .destructive) { model.reset() }
+                        .disabled(!model.phase.canSend)
+                    HStack {
+                        TextField("地图名称", text: $mapName)
+                        Button("保存") { model.saveMap(name: mapName) }
+                            .disabled(!model.phase.canSend || mapName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+                Section("预设场景") {
+                    if model.state?.scenes.isEmpty != false {
+                        Text("暂无预设场景").foregroundStyle(.secondary)
+                    } else {
+                        ForEach(model.state?.scenes ?? []) { scene in
+                            Button(scene.name) { model.setScene(scene.id) }
+                                .disabled(!model.phase.canSend)
+                        }
+                    }
+                }
                 Section("已保存地图") {
-                    ForEach(model.state?.savedMaps ?? []) { item in
-                        HStack {
-                            VStack(alignment: .leading) { Text(item.name); Text(String(format: "已探索 %.1f%%", item.stats?.knownPercent ?? 0)).font(.caption).foregroundStyle(.secondary) }
-                            Spacer(); Button("加载") { model.loadMap(id: item.id) }
+                    if model.state?.savedMaps.isEmpty != false {
+                        Text("暂无已保存地图").foregroundStyle(.secondary)
+                    } else {
+                        ForEach(model.state?.savedMaps ?? []) { item in
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(item.name)
+                                    Text(String(format: "已探索 %.1f%%", item.stats?.knownPercent ?? 0)).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Button("加载") { model.loadMap(id: item.id) }
+                                    .disabled(!model.phase.canSend)
+                            }
                         }
                     }
                 }
@@ -150,6 +189,8 @@ struct TasksView: View {
             .toolbar { EmergencyStopToolbar() }
         }
     }
+
+    private var canDrive: Bool { model.phase.canSend && model.robotOnline }
 }
 
 struct LogDetailView: View {
@@ -190,7 +231,12 @@ struct SettingsView: View {
                     LabeledContent("日志", value: "\(model.log.count) 条")
                 }
             }.navigationTitle("设置").onAppear { urlText = model.serverURLString }
-            .toolbar { EmergencyStopToolbar() }
+            .toolbar {
+                EmergencyStopToolbar()
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存并重连") { model.serverURLString = urlText; model.connect() }
+                }
+            }
         }
     }
 }

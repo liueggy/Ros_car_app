@@ -2,6 +2,7 @@ import SwiftUI
 
 struct JoystickControl: View {
     var speed: Double
+    var isEnabled: Bool = true
     var onCommand: (Double, Double, Double) -> Void
     var onStop: () -> Void
     @State private var knob: CGSize = .zero
@@ -14,14 +15,24 @@ struct JoystickControl: View {
     var body: some View {
         ZStack {
             Circle().fill(Color(uiColor: .secondarySystemBackground)).frame(width: radius * 2, height: radius * 2)
-            Circle().stroke(.blue.opacity(0.35), lineWidth: 2).frame(width: radius * 2, height: radius * 2)
-            Circle().stroke(.blue.opacity(0.18), lineWidth: 1).frame(width: radius, height: radius)
-            Circle().fill(.blue).frame(width: 54, height: 54).offset(knob)
+            Circle().stroke(isEnabled ? .blue.opacity(0.35) : .gray.opacity(0.25), lineWidth: 2).frame(width: radius * 2, height: radius * 2)
+            Circle().stroke(isEnabled ? .blue.opacity(0.18) : .gray.opacity(0.15), lineWidth: 1).frame(width: radius, height: radius)
+            Circle().fill(isEnabled ? .blue : .gray.opacity(0.45)).frame(width: 54, height: 54).offset(knob)
+            if !isEnabled {
+                Label("离线", systemImage: "lock.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.thinMaterial)
+                    .clipShape(Capsule())
+            }
         }
         .frame(width: radius * 2, height: radius * 2)
         .contentShape(Circle())
         .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .local)
             .onChanged { value in
+                guard isEnabled else { return }
                 isDragging = true
                 let center = CGPoint(x: radius, y: radius)
                 let dx = value.location.x - center.x

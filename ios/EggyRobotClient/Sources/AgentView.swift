@@ -306,6 +306,15 @@ struct AgentSettingsView: View {
                     LabeledContent("Temperature", value: String(format: "%.1f", agent.config.temperature))
                 }
                 Section("动作与确认") {
+                    if agent.config.allowRobotControl {
+                        Label("控车已开启：除停止外，移动/探索等动作仍会按确认和安全限制执行。", systemImage: "shield.checkered")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Label("当前是只读助手：只回答状态和建议，不会控制小车。", systemImage: "lock.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     Toggle("允许 Agent 控制小车", isOn: $agent.config.allowRobotControl)
                     Toggle("流式输出回答", isOn: $agent.config.streamResponses)
                     Toggle("始终确认动作", isOn: $agent.config.alwaysConfirmActions)
@@ -327,6 +336,7 @@ struct AgentSettingsView: View {
                 }
             }
             .navigationTitle("Agent 设置")
+            .onDisappear { agent.saveConfig() }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("保存") { agent.saveConfig(); dismiss() } }
                 ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() } }

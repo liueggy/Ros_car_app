@@ -17,6 +17,7 @@ final class AgentViewModel: ObservableObject {
     var pendingAction: AgentAction? { pendingQueue?.actions.first }
 
     private let client = OpenAICompatibleClient()
+    private let planDecoder = AgentPlanDecoder()
     private var toolExecutor: RobotToolExecutor?
     private weak var robot: RobotViewModel?
     private var requestTask: Task<Void, Never>?
@@ -87,7 +88,7 @@ final class AgentViewModel: ObservableObject {
                         let now = Date()
                         guard now.timeIntervalSince(lastPreviewUpdate) > 0.12 else { return }
                         lastPreviewUpdate = now
-                        let clean = self.visibleStreamingText(previewBuffer)
+                        let clean = self.planDecoder.visibleStreamingText(from: previewBuffer)
                         if !clean.isEmpty {
                             await MainActor.run { self.streamingPreview = clean }
                         }
@@ -99,7 +100,7 @@ final class AgentViewModel: ObservableObject {
                 } else {
                     content = try await client.complete(config: config, messages: promptMessages)
                 }
-                let plan = try decodePlan(from: content)
+                let plan = try planDecoder.decodePlan(from: content)
                 await MainActor.run {
                     self.streamingPreview = ""
                     self.messages.append(AgentChatMessage(role: .assistant, text: plan.reply))
@@ -215,30 +216,6 @@ final class AgentViewModel: ObservableObject {
         updated.status = status
         if let result { updated.result = result }
         toolEvents[idx] = updated
-    }
-
-    private func visibleStreamingText(_ raw: String) -> String {
-        if let replyRange = raw.range(of: "\"reply\"") ?? raw.range(of: "'reply'") {
-            let tail = raw[replyRange.upperBound...]
-            if let colon = tail.firstIndex(of: ":") {
-                var value = String(tail[tail.index(after: colon)...]).trimmingCharacters(in: .whitespacesAndNewlines)
-                if value.hasPrefix("\"") || value.hasPrefix("'") { value.removeFirst() }
-                if let end = value.firstIndex(where: { $0 == "\"" || $0 == "'" }) { value = String(value[..<end]) }
-                return value.replacingOccurrences(of: "\\n", with: "\n").replacingOccurrences(of: "\\\"", with: "\"")
-            }
-        }
-        if raw.contains("{") || raw.contains("\"actions\"") || raw.contains("\"action\"") { return "正在思考并规划动作…" }
-        return raw.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private func decodePlan(from content: String) throws -> AgentPlan {
-        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let data = trimmed.data(using: .utf8), let plan = try? JSONDecoder().decode(AgentPlan.self, from: data) { return plan }
-        if let start = trimmed.firstIndex(of: "{"), let end = trimmed.lastIndex(of: "}") {
-            let json = String(trimmed[start...end])
-            if let data = json.data(using: .utf8) { return try JSONDecoder().decode(AgentPlan.self, from: data) }
-        }
-        return AgentPlan(reply: content, action: nil, actions: nil)
     }
 
     private func buildMessages(userText: String) -> [OpenAIChatRequest.Message] {

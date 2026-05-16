@@ -50,6 +50,7 @@ final class RobotViewModel: ObservableObject {
     private var heartbeatTimer: Timer?
     private var watchdogTimer: Timer?
     private var reconnectTask: Task<Void, Never>?
+    private let commandEncoder = RobotCommandEncoder()
     private var reconnectAttempt = 0
     private var intentionalDisconnect = false
 
@@ -206,7 +207,7 @@ final class RobotViewModel: ObservableObject {
 
     private func sendPing() {
         guard task != nil else { return }
-        sendRaw(["type": "ping", "client": "ios"])
+        sendRaw(commandEncoder.encode(.ping()))
     }
 
     private func watchdogTick() {
@@ -265,16 +266,20 @@ final class RobotViewModel: ObservableObject {
         sendRaw(object)
     }
 
-    func cmd(x: Double, y: Double, z: Double) { send(["type":"cmd_vel", "linear_x":x, "linear_y":y, "angular_z":z]) }
+    func send(_ command: RobotCommand) {
+        send(commandEncoder.encode(command))
+    }
+
+    func cmd(x: Double, y: Double, z: Double) { send(.velocity(x: x, y: y, z: z)) }
     func stop() { cmd(x: 0, y: 0, z: 0) }
-    func reset() { send(["type":"reset"]) }
-    func setGoal(x: Double, y: Double) { send(["type":"goal", "frame_id":"map", "x":x, "y":y, "yaw":0]) }
-    func toggleExplore() { send(["type":"auto_explore", "enabled": !(state?.system.autoExplore ?? false)]) }
-    func setScene(_ id: String) { send(["type":"set_scene", "scene":id]) }
-    func saveMap(name: String) { send(["type":"save_map", "name":name]) }
-    func loadMap(id: String) { send(["type":"load_map", "id":id]) }
-    func deleteMap(id: String) { send(["type":"delete_map", "id":id]) }
-    func setMode(_ mode: String) { send(["type":"set_mode", "mode":mode]) }
+    func reset() { send(.reset) }
+    func setGoal(x: Double, y: Double) { send(.goal(x: x, y: y)) }
+    func toggleExplore() { send(.autoExplore(enabled: !(state?.system.autoExplore ?? false))) }
+    func setScene(_ id: String) { send(.setScene(id)) }
+    func saveMap(name: String) { send(.saveMap(name: name)) }
+    func loadMap(id: String) { send(.loadMap(id: id)) }
+    func deleteMap(id: String) { send(.deleteMap(id: id)) }
+    func setMode(_ mode: String) { send(.setMode(mode)) }
 
     private func appendLog(_ text: String) {
         log.insert("\(Date().formatted(date: .omitted, time: .standard))  \(text)", at: 0)

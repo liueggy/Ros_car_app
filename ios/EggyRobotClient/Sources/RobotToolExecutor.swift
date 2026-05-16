@@ -2,10 +2,10 @@ import Foundation
 
 @MainActor
 final class RobotToolExecutor {
-    private weak var robot: RobotViewModel?
+    private weak var robot: (any RobotControlling)?
     private var currentStopTask: Task<Void, Never>?
 
-    init(robot: RobotViewModel) { self.robot = robot }
+    init(robot: any RobotControlling) { self.robot = robot }
 
     func execute(_ action: AgentAction, config: AgentConfig) async -> String {
         guard let robot else { return "机器人控制器不可用" }
@@ -30,12 +30,12 @@ final class RobotToolExecutor {
         case "turn_right_short":
             return await move(robot: robot, x: 0, y: 0, z: -limitedDouble(action.parameters["angular_rps"], default: 0.35, min: 0.15, max: config.maxAngularSpeed), duration: min(duration(action, config), 1.2), frontCheck: false, config: config)
         case "start_auto_explore":
-            if robot.state?.system.autoExplore == true { return "自动探索已经在运行。" }
-            guard robot.phase.canSend, robot.robotOnline else { return "小车未在线，不能开始自动探索。" }
+            if robot.isAutoExploreRunning { return "自动探索已经在运行。" }
+            guard robot.canSendCommands, robot.isRobotOnline else { return "小车未在线，不能开始自动探索。" }
             robot.toggleExplore()
             return "已请求开始自动探索。"
         case "stop_auto_explore":
-            if robot.state?.system.autoExplore == true { robot.toggleExplore(); return "已请求停止自动探索。" }
+            if robot.isAutoExploreRunning { robot.toggleExplore(); return "已请求停止自动探索。" }
             return "自动探索当前未运行。"
         case "save_map":
             let raw = action.parameters["name"]?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -49,9 +49,9 @@ final class RobotToolExecutor {
         }
     }
 
-    private func move(robot: RobotViewModel, x: Double, y: Double, z: Double, duration: Double, frontCheck: Bool, config: AgentConfig) async -> String {
-        guard robot.phase.canSend, robot.robotOnline else { return "小车未在线，移动命令未执行。" }
-        if frontCheck, let front = robot.state?.summary.front, front < config.obstacleStopDistance { return String(format: "前方障碍 %.2fm，已拒绝前进。", front) }
+    private func move(robot: any RobotControlling, x: Double, y: Double, z: Double, duration: Double, frontCheck: Bool, config: AgentConfig) async -> String {
+        guard robot.canSendCommands, robot.isRobotOnline else { return "小车未在线，移动命令未执行。" }
+        if frontCheck, let front = robot.frontDistance, front < config.obstacleStopDistance { return String(format: "前方障碍 %.2fm，已拒绝前进。", front) }
         currentStopTask?.cancel()
         robot.cmd(x: x, y: y, z: z)
         currentStopTask = Task { @MainActor in

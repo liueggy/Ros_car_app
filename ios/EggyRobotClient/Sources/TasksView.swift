@@ -22,7 +22,7 @@ struct TasksView: View {
                     }
                 }
                 Section("预设场景") {
-                    if model.state?.scenes.isEmpty != false {
+                    if (model.state?.scenes ?? []).isEmpty {
                         Text("暂无预设场景").foregroundStyle(.secondary)
                     } else {
                         ForEach(model.state?.scenes ?? []) { scene in
@@ -32,7 +32,7 @@ struct TasksView: View {
                     }
                 }
                 Section("已保存地图") {
-                    if model.state?.savedMaps.isEmpty != false {
+                    if (model.state?.savedMaps ?? []).isEmpty {
                         Text("暂无已保存地图").foregroundStyle(.secondary)
                     } else {
                         ForEach(model.state?.savedMaps ?? []) { item in

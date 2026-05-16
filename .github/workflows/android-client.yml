@@ -1,0 +1,100 @@
+name: Android APK Build
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: mobile-latest-release
+  cancel-in-progress: false
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-client.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-client.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android/EggyRosCar
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 20
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run unit tests
+        run: gradle testDebugUnitTest
+
+      - name: Build debug APK
+        run: gradle assembleDebug
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk EggyRosCar-debug.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EggyRosCar-debug-apk
+          path: android/EggyRosCar/EggyRosCar-debug.apk
+
+      - name: Generate Android Release notes
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          BUILD_TIME_UTC=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          echo "RELEASE_UPDATED_AT=${BUILD_TIME_UTC}" >> "$GITHUB_ENV"
+          COMMIT_SHORT=$(git rev-parse --short HEAD)
+          CHANGES=$(git log -5 --pretty='- %s (%h)' -- android .github/workflows/android-client.yml)
+          cat > android-release-notes.md <<EOF
+          # Eggy ROS Car Mobile Latest
+
+          这里放最新的手机端构建产物。Android 和 iOS 共用这个 Release，后发布的平台只会更新自己的文件。
+
+          ## 本次 Android 更新
+
+          ${CHANGES}
+
+          ## Android 构建信息
+
+          - 构建时间：${BUILD_TIME_UTC}
+          - Workflow Run：#${GITHUB_RUN_NUMBER}
+          - Commit：${COMMIT_SHORT}
+          - 分支：${GITHUB_REF_NAME}
+          - Application ID：com.liueggy.roscarapp
+          - Min SDK：26
+          - Target SDK：34
+
+          ## 当前产物
+
+          - Android：EggyRosCar-debug.apk
+          - iOS：ROS-Car-unsigned.ipa
+          EOF
+
+      - name: Publish APK to shared mobile Release
+        if: ${{ github.event_name == 'push' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mobile-latest
+          name: Eggy ROS Car Mobile Latest - Android ${{ env.RELEASE_UPDATED_AT }}
+          body_path: android/EggyRosCar/android-release-notes.md
+          files: android/EggyRosCar/EggyRosCar-debug.apk
+          make_latest: true

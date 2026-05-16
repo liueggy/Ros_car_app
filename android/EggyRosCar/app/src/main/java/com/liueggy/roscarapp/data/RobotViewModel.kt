@@ -47,6 +47,8 @@ class RobotViewModel : ViewModel() {
     fun setScene(id: String) = client.setScene(id)
     fun saveMap(name: String) = client.saveMap(name)
     fun loadMap(id: String) = client.loadMap(id)
+    fun deleteMap(id: String) = client.deleteMap(id)
+    fun setMode(mode: String) = client.setMode(mode)
 
     override fun onCleared() {
         super.onCleared()

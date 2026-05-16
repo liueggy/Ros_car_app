@@ -21,6 +21,7 @@ ios/EggyRobotClient/ExportOptions.plist
 .gradle/
 android/EggyRosCar/.gradle/
 android/EggyRosCar/**/build/
+android/EggyRosCar/EggyRosCar-debug.apk
 android/EggyRosCar/local.properties
 *.apk
 *.aab

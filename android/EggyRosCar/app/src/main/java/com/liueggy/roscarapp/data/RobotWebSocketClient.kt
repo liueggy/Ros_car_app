@@ -19,6 +19,7 @@ class RobotWebSocketClient {
     }
 
     private val gson = Gson()
+    private val commandEncoder = RobotCommandEncoder()
     private val client = OkHttpClient.Builder().pingInterval(10, TimeUnit.SECONDS).build()
     private var webSocket: WebSocket? = null
     private var scope: CoroutineScope? = null
@@ -88,14 +89,18 @@ class RobotWebSocketClient {
 
     fun setServerUrl(url: String) { serverUrlString = url }
 
-    fun cmd(x: Double, y: Double, z: Double) = sendCommand(mapOf("type" to "cmd_vel", "linear_x" to x, "linear_y" to y, "angular_z" to z))
+    fun cmd(x: Double, y: Double, z: Double) = sendCommand(RobotCommand.Velocity(x, y, z))
     fun stop() = cmd(0.0, 0.0, 0.0)
-    fun reset() = sendCommand(mapOf("type" to "reset"))
-    fun setGoal(x: Double, y: Double) = sendCommand(mapOf("type" to "goal", "frame_id" to "map", "x" to x, "y" to y, "yaw" to 0))
-    fun toggleExplore() = sendCommand(mapOf("type" to "auto_explore", "enabled" to !(_state.value?.system?.autoExplore ?: false)))
-    fun setScene(id: String) = sendCommand(mapOf("type" to "set_scene", "scene" to id))
-    fun saveMap(name: String) = sendCommand(mapOf("type" to "save_map", "name" to name))
-    fun loadMap(id: String) = sendCommand(mapOf("type" to "load_map", "id" to id))
+    fun reset() = sendCommand(RobotCommand.Reset)
+    fun setGoal(x: Double, y: Double) = sendCommand(RobotCommand.Goal(x, y))
+    fun toggleExplore() = sendCommand(RobotCommand.AutoExplore(!(_state.value?.system?.autoExplore ?: false)))
+    fun setScene(id: String) = sendCommand(RobotCommand.SetScene(id))
+    fun saveMap(name: String) = sendCommand(RobotCommand.SaveMap(name))
+    fun loadMap(id: String) = sendCommand(RobotCommand.LoadMap(id))
+    fun deleteMap(id: String) = sendCommand(RobotCommand.DeleteMap(id))
+    fun setMode(mode: String) = sendCommand(RobotCommand.SetMode(mode))
+
+    fun sendCommand(command: RobotCommand) = sendCommand(commandEncoder.encode(command))
 
     fun sendCommand(command: Map<String, Any>) {
         if (_connectionPhase.value != ConnectionPhase.ONLINE && _connectionPhase.value != ConnectionPhase.STALE) {
@@ -148,7 +153,7 @@ class RobotWebSocketClient {
 
     private fun startTimers(scope: CoroutineScope) {
         heartbeatJob?.cancel(); watchdogJob?.cancel()
-        heartbeatJob = scope.launch { while (isActive) { delay(HEARTBEAT_INTERVAL_MS); webSocket?.send(gson.toJson(mapOf("type" to "ping", "client" to "android"))) } }
+        heartbeatJob = scope.launch { while (isActive) { delay(HEARTBEAT_INTERVAL_MS); webSocket?.send(gson.toJson(commandEncoder.encode(RobotCommand.Ping()))) } }
         watchdogJob = scope.launch { while (isActive) { delay(WATCHDOG_INTERVAL_MS); watchdogTick() } }
     }
 

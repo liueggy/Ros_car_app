@@ -35,9 +35,8 @@ data class TabItem(
 private val tabs = listOf(
     TabItem("总览", Icons.Default.Home, { DashboardScreen(it) }),
     TabItem("控制", Icons.Default.SportsEsports, { ControlScreen(it) }),
-    TabItem("地图", Icons.Default.Map, { MapScreen(it) }),
     TabItem("任务", Icons.Default.Checklist, { TasksScreen(it) }),
-    TabItem("设置", Icons.Default.Settings, { SettingsScreen(it) })
+    TabItem("助手", Icons.Default.AutoAwesome, { AgentScreen(it) })
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,11 +54,11 @@ fun EggyRosCarApp() {
             TopAppBar(
                 title = { Text(tabs[selectedTab].label, style = MaterialTheme.typography.titleMedium) },
                 actions = {
-                    val phase by viewModel.connectionPhase.collectAsState()
-                    if (phase.name == "ONLINE" || phase.name == "STALE") {
-                        IconButton(onClick = { viewModel.stop() }) {
-                            Icon(Icons.Default.Stop, "急停", tint = MaterialTheme.colorScheme.error)
-                        }
+                    IconButton(onClick = { viewModel.stop() }) {
+                        Icon(Icons.Default.Stop, "急停", tint = MaterialTheme.colorScheme.error)
+                    }
+                    IconButton(onClick = { selectedTab = 3 }) {
+                        Icon(Icons.Default.Settings, "设置")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -86,7 +85,6 @@ fun EggyRosCarApp() {
                 1 -> tabs[1].screen(viewModel)
                 2 -> tabs[2].screen(viewModel)
                 3 -> tabs[3].screen(viewModel)
-                4 -> tabs[4].screen(viewModel)
             }
         }
     }

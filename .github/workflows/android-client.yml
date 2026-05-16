@@ -41,12 +41,14 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
 
       - name: Run unit tests
-        run: gradle testDebugUnitTest --gradle-version 8.7
+        run: gradle testDebugUnitTest
 
       - name: Build debug APK
-        run: gradle assembleDebug --gradle-version 8.7
+        run: gradle assembleDebug
 
       - name: Rename APK
         run: cp app/build/outputs/apk/debug/app-debug.apk EggyRosCar-debug.apk

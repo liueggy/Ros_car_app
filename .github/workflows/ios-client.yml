@@ -144,6 +144,15 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
+      - name: Run unit tests
+        run: |
+          xcodebuild test \
+            -project EggyRobotClient.xcodeproj \
+            -scheme EggyRobotClient \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -derivedDataPath build-tests \
+            CODE_SIGNING_ALLOWED=NO
+
       - name: Package simulator app artifact
         run: |
           APP_PATH=$(find build/Build/Products/Release-iphonesimulator -name 'EggyRobotClient.app' -type d | head -1)

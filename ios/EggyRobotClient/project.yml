@@ -18,4 +18,14 @@ targets:
       ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
       CODE_SIGN_STYLE: Automatic
     scheme:
-      testTargets: []
+      testTargets:
+        - EggyRobotClientTests
+  EggyRobotClientTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - Tests
+    dependencies:
+      - target: EggyRobotClient
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.eggy.robot.client.tests

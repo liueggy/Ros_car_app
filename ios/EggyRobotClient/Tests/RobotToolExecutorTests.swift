@@ -44,9 +44,9 @@ final class RobotToolExecutorTests: XCTestCase {
 
         let result = await executor.execute(action("move_forward_short", parameters: ["speed_mps": "0.50", "duration_s": "3.0"]), config: config)
 
-        XCTAssertEqual(robot.commands.first?.x, 0.10, accuracy: 0.0001)
-        XCTAssertEqual(robot.commands.first?.y, 0, accuracy: 0.0001)
-        XCTAssertEqual(robot.commands.first?.z, 0, accuracy: 0.0001)
+        XCTAssertEqual(robot.commands.first?.x ?? 0, 0.10, accuracy: 0.0001)
+        XCTAssertEqual(robot.commands.first?.y ?? 0, 0, accuracy: 0.0001)
+        XCTAssertEqual(robot.commands.first?.z ?? 0, 0, accuracy: 0.0001)
         XCTAssertGreaterThanOrEqual(robot.stopCount, 1)
         XCTAssertEqual(result, "已执行短动作 0.2s，并自动停止。")
     }

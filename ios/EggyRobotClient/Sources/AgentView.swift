@@ -28,18 +28,30 @@ struct AgentView: View {
                 .padding(.horizontal)
                 .padding(.top, 8)
                 AgentStatusHeader(agent: agent, robot: robot)
+                if agent.config.apiKey.isEmpty || agent.config.model.isEmpty {
+                    AgentSetupHint { showingSettings = true }
+                }
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 12) {
                             quickPromptBar
-                            if !agent.streamingPreview.isEmpty { AgentBubble(message: AgentChatMessage(role: .assistant, text: agent.streamingPreview)) }
-                            if !agent.toolEvents.isEmpty { AgentToolTimelineView(events: agent.toolEvents) }
                             ForEach(agent.messages) { message in AgentBubble(message: message).id(message.id) }
+                            if !agent.streamingPreview.isEmpty {
+                                AgentBubble(message: AgentChatMessage(role: .assistant, text: agent.streamingPreview))
+                                    .id("streaming-preview")
+                            }
+                            if !agent.toolEvents.isEmpty { AgentToolTimelineView(events: agent.toolEvents) }
                         }
                         .padding()
                     }
                     .onChange(of: agent.scrollAnchor) { _, _ in
-                        if let last = agent.messages.last { withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(last.id, anchor: .bottom) } }
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            if !agent.streamingPreview.isEmpty {
+                                proxy.scrollTo("streaming-preview", anchor: .bottom)
+                            } else if let last = agent.messages.last {
+                                proxy.scrollTo(last.id, anchor: .bottom)
+                            }
+                        }
                     }
                 }
                 if let queue = agent.pendingQueue { AgentActionPlanCard(agent: agent, queue: queue) }
@@ -70,8 +82,10 @@ struct AgentView: View {
 
     private var inputBar: some View {
         HStack(alignment: .center, spacing: 6) {
-            TextField("发消息", text: $agent.input)
+            TextField("问问小车状态，或输入一个安全短动作…", text: $agent.input)
                 .textFieldStyle(.plain)
+                .submitLabel(.send)
+                .onSubmit { if canSend { agent.send() } }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color(.secondarySystemBackground)))
@@ -95,6 +109,34 @@ struct AgentView: View {
 
     private var canSend: Bool {
         !agent.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !agent.isLoading && !agent.isExecuting
+    }
+}
+
+struct AgentSetupHint: View {
+    var openSettings: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("先完成模型设置")
+                    .font(.subheadline.weight(.semibold))
+                Text("填写 Base URL、API Key 并选择模型后，助手才能回答和规划动作。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button("设置", action: openSettings)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+        }
+        .padding(12)
+        .background(.orange.opacity(0.10))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(.orange.opacity(0.25)))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal)
+        .padding(.top, 8)
     }
 }
 
@@ -144,11 +186,20 @@ struct AgentStatusHeader: View {
             Label(robot.connectionStatus, systemImage: robot.robotOnline ? "checkmark.circle.fill" : "wifi.slash")
                 .foregroundStyle(robot.robotOnline ? .green : .orange)
             Divider().frame(height: 18)
-            Text(agent.config.model.isEmpty ? "未选择模型" : agent.config.model)
+            Label(agent.config.model.isEmpty ? "未选择模型" : agent.config.model, systemImage: "cpu")
                 .lineLimit(1)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(agent.config.model.isEmpty ? .orange : .secondary)
             Spacer()
-            if agent.isExecuting { Label("执行中", systemImage: "play.circle.fill").foregroundStyle(.blue) }
+            if !agent.config.allowRobotControl {
+                Label("只读", systemImage: "lock.fill")
+                    .foregroundStyle(.secondary)
+            } else if agent.isExecuting {
+                Label("执行中", systemImage: "play.circle.fill")
+                    .foregroundStyle(.blue)
+            } else if agent.pendingQueue != nil {
+                Label("待确认", systemImage: "checklist")
+                    .foregroundStyle(.orange)
+            }
         }
         .font(.caption)
         .padding(.horizontal)
@@ -196,18 +247,24 @@ struct AgentBubble: View {
     var body: some View {
         HStack(alignment: .bottom) {
             if message.role == .user { Spacer(minLength: 42) }
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 5) {
                     Image(systemName: icon).font(.caption)
-                    Text(message.role.rawValue).font(.caption).foregroundStyle(.secondary)
+                    Text(title).font(.caption.weight(.medium)).foregroundStyle(.secondary)
                 }
                 Text(message.text).font(.body).textSelection(.enabled)
             }
-            .padding(12)
+            .padding(.horizontal, 13)
+            .padding(.vertical, 10)
             .background(background)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 17).stroke(borderColor))
+            .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
             if message.role != .user { Spacer(minLength: 42) }
         }
+    }
+
+    private var title: String {
+        switch message.role { case .user: return "你"; case .assistant: return "助手"; case .system: return "系统" }
     }
 
     private var icon: String {
@@ -216,6 +273,10 @@ struct AgentBubble: View {
 
     private var background: Color {
         switch message.role { case .user: return .blue.opacity(0.16); case .assistant: return .gray.opacity(0.12); case .system: return .orange.opacity(0.13) }
+    }
+
+    private var borderColor: Color {
+        switch message.role { case .user: return .blue.opacity(0.10); case .assistant: return .gray.opacity(0.10); case .system: return .orange.opacity(0.18) }
     }
 }
 

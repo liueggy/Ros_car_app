@@ -65,13 +65,18 @@ struct ControlView: View {
 
     @ViewBuilder
     private var controlContent: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 14) {
             if let state = model.state {
+                RobotStatusStrip(state: state, model: model)
+                    .padding(.horizontal)
+                    .padding(.top, 12)
                 InteractiveRobotMap(state: state) { x, y in model.setGoal(x: x, y: y) }
                     .frame(height: 285)
-                    .padding()
+                    .padding(.horizontal)
             } else {
-                ContentUnavailableView("等待地图", systemImage: "map", description: Text("连接服务器后显示小车位置")).frame(height: 285)
+                ContentUnavailableView("等待地图", systemImage: "map", description: Text("连接服务器后显示小车位置"))
+                    .frame(height: 285)
+                    .padding(.top, 12)
             }
             Picker("速度模式", selection: $mode) { ForEach(SpeedMode.allCases) { Text($0.rawValue).tag($0) } }
                 .pickerStyle(.segmented)
@@ -83,12 +88,41 @@ struct ControlView: View {
                     Button("急停") { model.stop() }.tint(.red).buttonStyle(.borderedProminent)
                     Button("右转") { model.cmd(x: 0, y: 0, z: -0.45) }
                 }.buttonStyle(.bordered).controlSize(.large)
-            }.padding()
+            }.padding(.horizontal)
             HStack(spacing: 14) {
                 Button(model.state?.system.autoExplore == true ? "停止探索" : "自动探索") { model.toggleExplore() }
                 Button("重置") { model.reset() }
             }.buttonStyle(.bordered)
+            Text("提示：摇杆松手会自动停止；急停按钮始终可用。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 8)
         }
+    }
+}
+
+struct RobotStatusStrip: View {
+    let state: NavViewMessage
+    @ObservedObject var model: RobotViewModel
+
+    var body: some View {
+        HStack(spacing: 8) {
+            statusItem("连接", model.connectionStatus, model.robotOnline ? .green : .orange)
+            statusItem("前方", state.summary.front.map { String(format: "%.2fm", $0) } ?? "--", .cyan)
+            statusItem("电池", state.battery.percent.map { "\($0)%" } ?? "--", .blue)
+        }
+    }
+
+    private func statusItem(_ title: String, _ value: String, _ color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(.caption2).foregroundStyle(.secondary)
+            Text(value).font(.caption.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.75)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(color.opacity(0.10))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(color.opacity(0.18)))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 

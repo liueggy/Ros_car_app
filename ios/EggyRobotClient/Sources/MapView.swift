@@ -46,6 +46,15 @@ struct InteractiveRobotMap: View {
                 .shadow(color: .black.opacity(colorScheme == .dark ? 0.45 : 0.10), radius: 10, y: 6)
                 .gesture(dragGesture(size: geo.size))
                 .simultaneousGesture(magnifyGesture)
+                .overlay(alignment: .topTrailing) {
+                    Text("点按设目标 · 双指缩放 · 拖动平移")
+                        .font(.caption2)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(.thinMaterial)
+                        .clipShape(Capsule())
+                        .padding(8)
+                }
                 .overlay(alignment: .bottomTrailing) {
                     Button("复位") { withAnimation { scale = 1; lastScale = 1; offset = .zero; lastOffset = .zero } }
                         .font(.caption)

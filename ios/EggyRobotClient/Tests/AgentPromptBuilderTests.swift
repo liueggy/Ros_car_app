@@ -57,7 +57,9 @@ final class AgentPromptBuilderTests: XCTestCase {
             knownMapPercent: 37.6,
             navStatus: "idle",
             autoExplore: true,
-            recentLogs: ["log1", "log2"]
+            recentLogs: ["log1", "log2"],
+            simpleNavStatus: "driving",
+            healthIssues: ["[orange] 地图为空"]
         )
 
         let summary = builder.robotSummary(snapshot)

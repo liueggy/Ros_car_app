@@ -109,4 +109,12 @@ private final class FakeRobotController: RobotControlling {
     func toggleExplore() { toggleExploreCount += 1; isAutoExploreRunning.toggle() }
     func saveMap(name: String) { savedMapNames.append(name) }
     func reset() { resetCount += 1 }
+    func startMapping() {}
+    func stopMapping() {}
+    func saveNavigationMap(name: String) {}
+    func startQuickDirectNavigation() {}
+    func startMoveBaseNavigation(mapPath: String?) {}
+    func stopNavigation() {}
+    func setMode(_ mode: String) {}
+    func sendRawCommand(_ dict: [String: Any]) {}
 }

@@ -15,13 +15,15 @@ struct AgentPromptRobotSnapshot: Equatable {
     var navStatus: String?
     var autoExplore: Bool?
     var recentLogs: [String]
+    var simpleNavStatus: String?
+    var healthIssues: [String]
 
     static func unbound() -> Self {
-        .init(connectionStatus: "机器人控制器未绑定", robotOnline: nil, rosOK: nil, batteryPercent: nil, batteryVoltage: nil, x: nil, y: nil, yawRadians: nil, frontDistance: nil, nearestDistance: nil, knownMapPercent: nil, navStatus: nil, autoExplore: nil, recentLogs: [])
+        .init(connectionStatus: "机器人控制器未绑定", robotOnline: nil, rosOK: nil, batteryPercent: nil, batteryVoltage: nil, x: nil, y: nil, yawRadians: nil, frontDistance: nil, nearestDistance: nil, knownMapPercent: nil, navStatus: nil, autoExplore: nil, recentLogs: [], simpleNavStatus: nil, healthIssues: [])
     }
 
     static func noState(connectionStatus: String) -> Self {
-        .init(connectionStatus: connectionStatus, robotOnline: nil, rosOK: nil, batteryPercent: nil, batteryVoltage: nil, x: nil, y: nil, yawRadians: nil, frontDistance: nil, nearestDistance: nil, knownMapPercent: nil, navStatus: nil, autoExplore: nil, recentLogs: [])
+        .init(connectionStatus: connectionStatus, robotOnline: nil, rosOK: nil, batteryPercent: nil, batteryVoltage: nil, x: nil, y: nil, yawRadians: nil, frontDistance: nil, nearestDistance: nil, knownMapPercent: nil, navStatus: nil, autoExplore: nil, recentLogs: [], simpleNavStatus: nil, healthIssues: [])
     }
 }
 
@@ -40,6 +42,7 @@ struct AgentPromptBuilder {
         JSON 格式：{"reply":"给用户看的中文回复","actions":[{"name":"动作名","requires_confirmation":true,"parameters":{"key":"value"}}]}
         如果只需要回答问题，actions 为空数组或省略。兼容旧字段 action，但优先使用 actions。
         可用动作：stop, move_forward_short, move_backward_short, move_front_right_short, move_front_left_short, turn_left_short, turn_right_short, start_auto_explore, stop_auto_explore, save_map, reset_map。
+        建图与导航动作（需小车在线）：start_mapping（开始建图）, stop_mapping（停止建图）, save_navigation_map（保存导航地图，参数 name）, start_quick_nav（开启快速直达导航）, simple_goal（导航到坐标点，参数 x,y），stop_navigation（停止导航）, start_move_base（开启 move_base 完整导航）, set_mode_lite/set_mode_map（切换地图模式）。
         当前 Agent 控车开关：\(config.allowRobotControl ? "开启" : "关闭")。如果关闭，不要生成 actions，只做状态解释和建议。
         你可以把复合指令拆成最多 \(config.maxQueueActions) 个短动作。例如“先右转一点再前进一点”返回两个 actions。
         当前只支持短动作近似执行，不支持精确距离/角度闭环。遇到“前进一米/转三圈/移动两米”等长距离长时间指令，应明确说明当前只能拆成安全短动作近似，动作总数不要超过限制。
@@ -63,6 +66,8 @@ struct AgentPromptBuilder {
         建图覆盖：\(String(format: "%.1f%%", robot.knownMapPercent ?? 0))
         导航状态：\(robot.navStatus ?? "未知")
         自动探索：\(robot.autoExplore == true ? "运行中" : "未运行")
+        快速导航状态：\(robot.simpleNavStatus ?? "未知")
+        异常告警：\(robot.healthIssues.prefix(3).joined(separator: "；"))
         最近日志：\(robot.recentLogs.prefix(5).joined(separator: "；"))
         """
     }

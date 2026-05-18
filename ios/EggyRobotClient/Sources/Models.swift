@@ -19,10 +19,9 @@ struct NavViewMessage: Codable {
     let alerts: [RelayAlert]?
     let savedMaps: [SavedMap]?
     let scenes: [SceneInfo]?
-    let health: HealthInfo?
 
     enum CodingKeys: String, CodingKey {
-        case type, ts, robot, map, goal, battery, summary, system, topics, logs, alerts, scenes, health
+        case type, ts, robot, map, goal, battery, summary, system, topics, logs, alerts, scenes
         case occupancyGrid = "occupancy_grid"
         case lidarPoints = "lidar_points"
         case globalPlan = "global_plan"
@@ -30,20 +29,6 @@ struct NavViewMessage: Codable {
         case navStatus = "nav_status"
         case savedMaps = "saved_maps"
     }
-}
-
-struct HealthInfo: Codable {
-    var level: String?
-    var stateAgeSec: Double?
-    var issues: [HealthIssue]?
-    var capabilities: [String: Bool]?
-    enum CodingKeys: String, CodingKey { case level, issues, capabilities; case stateAgeSec = "state_age_sec" }
-}
-
-struct HealthIssue: Codable {
-    var level: String?
-    var name: String?
-    var hint: String?
 }
 
 struct RobotPose: Codable {

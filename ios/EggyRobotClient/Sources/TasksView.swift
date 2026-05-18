@@ -62,7 +62,7 @@ struct TasksView: View {
                 HStack(spacing: 12) {
                     TimelineStepBadge(number: 2, isActive: canOperate)
                     Image(systemName: "square.and.arrow.down")
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                         .frame(width: 28)
                     TextField("保存为导航地图", text: $mapName)
                         .font(.subheadline)

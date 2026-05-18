@@ -60,6 +60,7 @@ final class RobotViewModel: ObservableObject {
     @Published var connectionStatus = "未连接"
     @Published var log: [String] = []
     @Published var lastMessageAt: Date?
+    @Published var lastStateAt: Date?
     @Published var navigationMode: RobotNavigationMode = .idle
 
     private var task: URLSessionWebSocketTask?

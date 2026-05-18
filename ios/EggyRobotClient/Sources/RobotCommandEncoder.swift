@@ -9,6 +9,7 @@ enum RobotCommand: Equatable {
     case saveMap(name: String)
     case loadMap(id: String)
     case deleteMap(id: String)
+    case setMode(String)
     case startMapping
     case stopMapping
     case saveNavigationMap(name: String)

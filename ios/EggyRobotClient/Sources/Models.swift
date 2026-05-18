@@ -106,7 +106,8 @@ struct SystemState: Codable {
     var autoExplore: Bool?
     var scene: String?
     var sceneName: String?
-    enum CodingKeys: String, CodingKey { case ros, base, imu, lidar, map, diagnostics, server, mode; case robotId = "robot_id"; case robotConnected = "robot_connected"; case streamMode = "stream_mode"; case autoExplore = "auto_explore"; case scene; case sceneName = "scene_name" }
+    var simpleNavStatus: String?
+    enum CodingKeys: String, CodingKey { case ros, base, imu, lidar, map, diagnostics, server, mode; case robotId = "robot_id"; case robotConnected = "robot_connected"; case streamMode = "stream_mode"; case autoExplore = "auto_explore"; case scene; case sceneName = "scene_name"; case simpleNavStatus = "simple_nav_status" }
 }
 
 struct TopicInfo: Codable, Identifiable {

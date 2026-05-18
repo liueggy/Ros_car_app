@@ -33,6 +33,22 @@ enum ConnectionPhase: Equatable {
     }
 }
 
+enum RobotNavigationMode: String, Equatable {
+    case idle
+    case mapping
+    case quickDirect
+    case moveBase
+
+    var title: String {
+        switch self {
+        case .idle: return "待机"
+        case .mapping: return "建图中"
+        case .quickDirect: return "快速直达"
+        case .moveBase: return "move_base"
+        }
+    }
+}
+
 @MainActor
 final class RobotViewModel: ObservableObject {
     static let defaultServerURL = "wss://liueggy.live/ws"
@@ -44,7 +60,7 @@ final class RobotViewModel: ObservableObject {
     @Published var connectionStatus = "未连接"
     @Published var log: [String] = []
     @Published var lastMessageAt: Date?
-    @Published var lastStateAt: Date?
+    @Published var navigationMode: RobotNavigationMode = .idle
 
     private var task: URLSessionWebSocketTask?
     private var heartbeatTimer: Timer?
@@ -273,7 +289,21 @@ final class RobotViewModel: ObservableObject {
     func cmd(x: Double, y: Double, z: Double) { send(.velocity(x: x, y: y, z: z)) }
     func stop() { cmd(x: 0, y: 0, z: 0) }
     func reset() { send(.reset) }
-    func setGoal(x: Double, y: Double) { send(.goal(x: x, y: y)) }
+    func setGoal(x: Double, y: Double) {
+        if navigationMode == .quickDirect {
+            send(.simpleGoal(x: x, y: y))
+        } else {
+            send(.goal(x: x, y: y))
+        }
+    }
+    func setMoveBaseGoal(x: Double, y: Double) { send(.goal(x: x, y: y)) }
+    func setSimpleGoal(x: Double, y: Double) { send(.simpleGoal(x: x, y: y)) }
+    func startMapping() { navigationMode = .mapping; send(.setMode("map")); send(.startMapping) }
+    func stopMapping() { if navigationMode == .mapping { navigationMode = .idle }; send(.stopMapping); send(.setMode("lite")) }
+    func saveNavigationMap(name: String) { send(.saveNavigationMap(name: name)) }
+    func startQuickDirectNavigation() { navigationMode = .quickDirect; send(.startSimpleNav); send(.setMode("map")) }
+    func startMoveBaseNavigation(mapPath: String? = nil) { navigationMode = .moveBase; send(.startNavigation(mapPath: mapPath)); send(.setMode("map")) }
+    func stopNavigation() { navigationMode = .idle; send(.cancelSimpleGoal); send(.cancelGoal); send(.stopSimpleNav); send(.stopNavigation); stop() }
     func toggleExplore() { send(.autoExplore(enabled: !(state?.system.autoExplore ?? false))) }
     func setScene(_ id: String) { send(.setScene(id)) }
     func saveMap(name: String) { send(.saveMap(name: name)) }

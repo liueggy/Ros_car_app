@@ -36,6 +36,21 @@ final class RobotCommandEncoderTests: XCTestCase {
         XCTAssertEqual(encoder.encode(.deleteMap(id: "map-2"))["type"] as? String, "delete_map")
     }
 
+    func testEncodesNavigationWorkflowCommands() {
+        XCTAssertEqual(encoder.encode(.startMapping)["type"] as? String, "start_mapping")
+        XCTAssertEqual(encoder.encode(.stopMapping)["type"] as? String, "stop_mapping")
+        XCTAssertEqual(encoder.encode(.saveNavigationMap(name: "nav"))["type"] as? String, "save_navigation_map")
+        XCTAssertEqual(encoder.encode(.startSimpleNav)["type"] as? String, "start_simple_nav")
+        XCTAssertEqual(encoder.encode(.stopSimpleNav)["type"] as? String, "stop_simple_nav")
+        XCTAssertEqual(encoder.encode(.cancelSimpleGoal)["type"] as? String, "cancel_simple_goal")
+        XCTAssertEqual(encoder.encode(.startNavigation(mapPath: nil))["type"] as? String, "start_navigation")
+        XCTAssertEqual(encoder.encode(.stopNavigation)["type"] as? String, "stop_navigation")
+        XCTAssertEqual(encoder.encode(.cancelGoal)["type"] as? String, "cancel_goal")
+        let simple = encoder.encode(.simpleGoal(x: 1, y: 2, yaw: 0.3))
+        XCTAssertEqual(simple["type"] as? String, "simple_goal")
+        XCTAssertEqual(simple["frame_id"] as? String, "map")
+    }
+
     func testEncodesPingCommand() {
         let payload = encoder.encode(.ping())
 

@@ -69,7 +69,21 @@ struct AppSectionCard<Content: View>: View {
     let subtitle: String?
     let systemImage: String
     var accent: Color = .accentColor
-    @ViewBuilder var content: Content
+    let content: Content
+
+    init(
+        title: String,
+        subtitle: String? = nil,
+        systemImage: String,
+        accent: Color = .accentColor,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.systemImage = systemImage
+        self.accent = accent
+        self.content = content()
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {

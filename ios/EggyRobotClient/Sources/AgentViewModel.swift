@@ -240,7 +240,9 @@ final class AgentViewModel: ObservableObject {
             knownMapPercent: s.occupancyGrid?.stats.knownPercent,
             navStatus: s.navStatus,
             autoExplore: s.system.autoExplore,
-            recentLogs: Array(robot.log.prefix(5))
+            recentLogs: Array(robot.log.prefix(5)),
+            simpleNavStatus: s.system.simpleNavStatus,
+            healthIssues: (s.health?.issues ?? []).map { "[\($0.level ?? "?")] \($0.name ?? "?"): \($0.hint ?? "")" }
         )
     }
 

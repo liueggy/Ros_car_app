@@ -12,6 +12,14 @@ protocol RobotControlling: AnyObject {
     func toggleExplore()
     func saveMap(name: String)
     func reset()
+    func startMapping()
+    func stopMapping()
+    func saveNavigationMap(name: String)
+    func startQuickDirectNavigation()
+    func startMoveBaseNavigation(mapPath: String?)
+    func stopNavigation()
+    func setMode(_ mode: String)
+    func sendRawCommand(_ dict: [String: Any])
 }
 
 extension RobotViewModel: RobotControlling {
@@ -19,4 +27,5 @@ extension RobotViewModel: RobotControlling {
     var isRobotOnline: Bool { robotOnline }
     var frontDistance: Double? { state?.summary.front }
     var isAutoExploreRunning: Bool { state?.system.autoExplore == true }
+    func sendRawCommand(_ dict: [String: Any]) { send(dict) }
 }
